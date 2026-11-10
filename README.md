@@ -30,6 +30,27 @@
 
 `SKILL.md` 必须位于 `skills/<技能名>/SKILL.md` 这一层，不要多套一层目录；本仓库根目录就是 `SKILL.md`，直接 clone 到目标路径即可。
 
+## 一键安装脚本
+
+脚本会检查依赖、克隆公开仓库，并把文件放到正确的 skills 目录（默认用户级）：
+
+```bash
+# macOS / Linux / Git Bash
+bash install.sh                # 用户级 ~/.workbuddy/skills/
+bash install.sh --project      # 当前项目 .workbuddy/skills/
+bash install.sh --dir /path    # 指定 skills 根目录
+bash install.sh --force        # 目标已存在时覆盖（先备份）
+```
+
+```powershell
+# Windows PowerShell
+.\install.ps1
+.\install.ps1 -Project
+.\install.ps1 -Force
+```
+
+脚本检查 git / ffmpeg / ffprobe / Python / Pillow，缺失会明确列出；Remotion 后端另需 Node 18+ 并在 `remotion/` 下执行 `npm install`。装完新开一个 WorkBuddy 对话生效。
+
 ## 依赖
 
 | 依赖 | 用途 | 说明 |
