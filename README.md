@@ -16,15 +16,19 @@
 
 ## 安装
 
-在 WorkBuddy 左侧「专家·技能·连接器」→ 技能 → SkillHub 分类搜索 `oral-video-packager` 一键安装；或在对话里说「找一个能把口播视频包装成带字幕、人物名片和知识动画成片的技能」。安装后新开一个对话生效。
+正式渠道是腾讯 SkillHub：在 WorkBuddy 左侧「专家·技能·连接器」→ 技能 → SkillHub 分类搜索 `oral-video-packager` 一键安装；或在对话里说「找一个能把口播视频包装成带字幕、人物名片和知识动画成片的技能」。安装后新开一个对话生效。
 
-也可从源码安装：
+本仓库是公开仓库，HTTPS 克隆无需任何凭证。从源码安装有三种方式：
 
-```bash
-git clone git@github.com:ZeyZhang/oral-video-packager.git ~/.workbuddy/skills/oral-video-packager
-```
+1. **把链接交给 Agent**（最省事）：对 WorkBuddy 说「帮我安装这个仓库里的 skill：https://github.com/ZeyZhang/oral-video-packager」，它会自行 clone、定位 `SKILL.md` 并放到正确的 skills 目录。
+2. **一行命令**：
+   ```bash
+   git clone https://github.com/ZeyZhang/oral-video-packager.git ~/.workbuddy/skills/oral-video-packager
+   ```
+   Windows 对应 `C:\Users\<用户名>\.workbuddy\skills\oral-video-packager`。
+3. **Release 的 zip**：下载后走 WorkBuddy「添加技能 → 上传技能」。
 
-Windows 对应 `C:\Users\<用户名>\.workbuddy\skills\oral-video-packager`。`SKILL.md` 必须位于该目录根部，不要多套一层目录。
+`SKILL.md` 必须位于 `skills/<技能名>/SKILL.md` 这一层，不要多套一层目录；本仓库根目录就是 `SKILL.md`，直接 clone 到目标路径即可。
 
 ## 依赖
 
@@ -42,7 +46,9 @@ Windows 对应 `C:\Users\<用户名>\.workbuddy\skills\oral-video-packager`。`S
 
 ```bash
 cp assets/config.example.json myconfig.json
-# 修改 source / output / workdir，以及 person 的姓名、机构、科室、职称
+# 示例里的 source / reference / output / workdir 和 ending.avatar.video
+# 都是作者本机的 E:/workspace/... 路径，必须全部换成你自己的绝对路径；
+# person 的姓名、机构、科室、职称由你提供
 python scripts/package_video.py --config myconfig.json --preview-card card.png
 python scripts/package_video.py --config myconfig.json
 ```
