@@ -645,7 +645,7 @@ def inline(s, gold_hex):
     return out + buf + ("{\\c&HFFFFFF&}" if on else "")
 
 
-def build_subtitles(cfg, st, work, outdir):
+def build_subtitles(cfg, st, work, outdir, plan=None):
     cues, segs = cfg.get("subtitles", []), cfg.get("segments", [])
     head = """[Script Info]
 ScriptType: v4.00+
@@ -667,7 +667,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         rows = c["lines"] if isinstance(c["lines"], list) else [c["lines"]]
         txt = "\\N".join(inline(r, st.gold_hex) for r in rows)
         prefix = ""
-        if st.shift_on and overlaps(a, b, segs) and st.pip:
+        if plan is not None:
+            sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+            import shot_engine
+            prefix = shot_engine.subtitle_prefix(plan, a, b)
+        elif st.shift_on and overlaps(a, b, segs) and st.pip:
             prefix = "{\\pos(%d,%d)\\fs%d}" % (st.shift_pos[0], st.shift_pos[1], st.shift_size)
         lines.append("Dialogue: 0,%s,%s,Default,,0,0,0,,%s%s" %
                      (ass_time(a), ass_time(b), prefix, txt))
@@ -839,14 +843,53 @@ def compose(cfg, st, work, info, n, final):
          "-i", "list.txt", "-c", "copy", "-movflags", "+faststart", final], cwd=work)
 
 
-def make_sheet(final, work, info, cfg):
+def compose_shots(cfg, work, info, final):
+    """Shot-rendered frames are already flattened; just burn subtitles + ending."""
+    fps = info["fps"]
+    fade = cfg.get("audio", {}).get("fade_out")
+    af = ",afade=t=out:st=%s:d=%s" % (fade[0], fade[1]) if fade else ""
+    fc = "[0:v]ass=subtitles.ass[v];[0:a]anull%s[a]" % af
+    run(["ffmpeg", "-y", "-v", "warning", "-i", "shots_main.mp4",
+         "-filter_complex", fc, "-map", "[v]", "-map", "[a]",
+         "-c:v", "libx264", "-preset", "medium", "-crf", "19",
+         "-pix_fmt", "yuv420p", "-r", str(fps),
+         "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
+         "-t", str(info["dur"]), "main.mp4"], cwd=work)
+
+    edur = float(cfg.get("ending", {}).get("duration", 2.0))
+    run(["ffmpeg", "-y", "-v", "warning", "-loop", "1", "-framerate", str(fps),
+         "-i", "ending.png", "-f", "lavfi",
+         "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
+         "-t", str(edur), "-c:v", "libx264", "-preset", "medium", "-crf", "19",
+         "-pix_fmt", "yuv420p", "-r", str(fps),
+         "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
+         "-shortest", "ending.mp4"], cwd=work)
+    with open(os.path.join(work, "list.txt"), "w", encoding="utf-8") as f:
+        f.write("file 'main.mp4'\nfile 'ending.mp4'\n")
+    run(["ffmpeg", "-y", "-v", "warning", "-f", "concat", "-safe", "0",
+         "-i", "list.txt", "-c", "copy", "-movflags", "+faststart", final], cwd=work)
+
+
+def make_sheet(final, work, info, cfg, plan=None):
     fps = info["fps"]
     edur = float(cfg.get("ending", {}).get("duration", 2.0))
-    # 定点覆盖片头、人物条、每段动画中点、结尾真人、片尾，避免等间隔采样漏段
-    pts = [1.7, 7.3] + [(s["start"] + s["end"]) / 2 for s in cfg.get("segments", [])[:4]]
-    pts += [max(1, info["dur"] - 3), info["dur"] + edur * 0.4]
-    while len(pts) < 8:
-        pts.append(info["dur"] * (len(pts) + 1) / 9)
+    # 定点覆盖：分镜模式优先采样每种不同版式，普通模式覆盖片头/动画/结尾
+    if plan:
+        seen, pts = set(), []
+        for s in plan.get("shots", []):
+            if s["layout"] in seen:
+                continue
+            seen.add(s["layout"])
+            pts.append((s["start"] + s["end"]) / 2)
+        pts = pts[:7]
+    else:
+        pts = [1.7, 7.3] + [(s["start"] + s["end"]) / 2
+                           for s in cfg.get("segments", [])[:4]]
+        pts += [max(1, info["dur"] - 3)]
+        pts = pts[:7]
+    while len(pts) < 7:
+        pts.append(info["dur"] * (len(pts) + 1) / 8)
+    pts.append(info["dur"] + edur * 0.4)
     marks = [int(t * fps) for t in pts[:8]]
     sel = "+".join("eq(n,%d)" % m for m in marks)
     run(["ffmpeg", "-y", "-v", "error", "-i", final,
@@ -854,7 +897,7 @@ def make_sheet(final, work, info, cfg):
          "-fps_mode", "vfr", "-frames:v", "1", "contact_sheet.png"], cwd=work)
 
 
-def write_checklist(cfg, work, outdir, final):
+def write_checklist(cfg, work, outdir, final, plan=None):
     prof = cfg.get("_profile", "medical")
     pdef = cfg.get("_profile_def", PROFILES["medical"])
     data = {
@@ -873,6 +916,17 @@ def write_checklist(cfg, work, outdir, final):
         data["clip_edit"] = cfg["_clip"]
         data["checks"].append(
             "核对 edit_map.json 的切点：未截断语义，字幕/动画/人物条已重新对齐")
+    if plan:
+        layouts = []
+        for s in plan["shots"]:
+            if s["layout"] not in layouts:
+                layouts.append(s["layout"])
+        data["shots"] = {"count": len(plan["shots"]),
+                         "layouts": layouts,
+                         "transition": plan.get("transition"),
+                         "plan_file": "shot_plan.json"}
+        data["checks"].append(
+            "逐段核对 shot_plan.json：版式与内容语义匹配、转场自然、字幕位置未被分格遮挡")
     for d in (work, outdir):
         if d:
             with open(os.path.join(d, "review_checklist.json"), "w", encoding="utf-8") as f:
@@ -970,6 +1024,15 @@ def main():
                     help="只做切片与重映射，不跑包装合成")
     ap.add_argument("--no-clip", action="store_true",
                     help="忽略配置里的 clip 段，直接用原片包装")
+    ap.add_argument("--auto-shots", action="store_true",
+                    help="按内容自动规划分镜，每段切换不同画面分格")
+    ap.add_argument("--shot-plan", help="人工编辑后的 shot_plan.json（回灌）")
+    ap.add_argument("--shot-transition", choices=["fade", "slide", "cut"],
+                    help="分镜转场：交叉淡化 / 滑入 / 硬切")
+    ap.add_argument("--no-shots", action="store_true",
+                    help="忽略配置里的 shots 段，走固定模板路径")
+    ap.add_argument("--plan-only", action="store_true",
+                    help="只生成 shot_plan.json，不渲染出片")
     ap.add_argument("--workdir")
     ap.add_argument("--output")
     ap.add_argument("--reuse-frames", action="store_true")
@@ -1036,20 +1099,69 @@ def main():
     if args.preview_card:
         preview_card(cfg, st, work, info, args.preview_card)
         return
+
+    shot_cfg = cfg.get("shots")
+    want_shots = bool(args.auto_shots or args.shot_plan or
+                      (shot_cfg and not args.no_shots))
+    plan = None
+    shot_engine = None
+    if want_shots:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import shot_engine
+        if args.shot_plan:
+            with open(args.shot_plan, "r", encoding="utf-8") as f:
+                plan = json.load(f)
+        elif isinstance(shot_cfg, list):
+            plan = {"version": 1, "duration": info["dur"], "fps": info["fps"],
+                    "transition": "fade", "shots": shot_cfg}
+        elif isinstance(shot_cfg, dict) and shot_cfg.get("plan"):
+            plan = {"version": 1, "duration": info["dur"], "fps": info["fps"],
+                    "transition": shot_cfg.get("transition", "fade"),
+                    "shots": shot_cfg["plan"]}
+        else:
+            opts = dict(shot_cfg) if isinstance(shot_cfg, dict) else {}
+            if args.shot_transition:
+                opts["transition"] = args.shot_transition
+            c2 = dict(cfg)
+            c2["_duration"] = info["dur"]
+            plan = shot_engine.build_plan(c2, opts)
+        for d in (work, outdir):
+            with open(os.path.join(d, "shot_plan.json"), "w",
+                      encoding="utf-8") as f:
+                json.dump(plan, f, ensure_ascii=False, indent=2)
+        kinds = []
+        for s in plan["shots"]:
+            if s["layout"] not in kinds:
+                kinds.append(s["layout"])
+        print("[setup] shots: %d segments / %d layouts: %s" %
+              (len(plan["shots"]), len(kinds), " ".join(kinds)))
+        if args.plan_only:
+            print("\nPLAN ONLY -> %s" %
+                  os.path.join(outdir, "shot_plan.json"))
+            return
+
     print("[1/6] subtitles")
-    build_subtitles(cfg, st, work, outdir)
+    build_subtitles(cfg, st, work, outdir, plan)
     print("[2/6] assets")
     build_assets(cfg, st, work, info)
-    ext = args.animation_frames or cfg.get("animation_frames")
-    print("[3/6] frames (backend: %s)" % ("external" if ext else "builtin-pillow"))
-    n, _, reused = build_frames(cfg, st, work, info, args.reuse_frames, ext)
-    print("      %d frames%s" % (n, " (reused)" if reused else ""))
-    print("[4/6] compose")
-    compose(cfg, st, work, info, n, final)
+    if plan:
+        print("[3/6] shot frames (content-driven layouts)")
+        shot_engine.render(cfg, plan, work, info)
+        print("[4/6] compose (shot mode)")
+        compose_shots(cfg, work, info, final)
+    else:
+        ext = args.animation_frames or cfg.get("animation_frames")
+        print("[3/6] frames (backend: %s)" %
+              ("external" if ext else "builtin-pillow"))
+        n, _, reused = build_frames(cfg, st, work, info,
+                                    args.reuse_frames, ext)
+        print("      %d frames%s" % (n, " (reused)" if reused else ""))
+        print("[4/6] compose")
+        compose(cfg, st, work, info, n, final)
     print("[5/6] contact sheet")
-    make_sheet(final, work, info, cfg)
+    make_sheet(final, work, info, cfg, plan)
     print("[6/6] review checklist")
-    write_checklist(cfg, work, outdir, final)
+    write_checklist(cfg, work, outdir, final, plan)
     print("\nDONE -> %s" % final)
     print("      %s" % os.path.join(work, "contact_sheet.png"))
     print("      %s" % os.path.join(outdir, "review_checklist.json"))

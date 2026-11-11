@@ -23,7 +23,7 @@
 | 字段 | 本包取值 | 说明 |
 |---|---|---|
 | `slug` | `oral-video-packager` | kebab-case、全网唯一、**提交后不可修改**；提示 409 被占用时改成带账号前缀后重新打包 |
-| `version` | `1.1.1` | SemVer，同一 slug 下必须递增；每次内容变更都要升版本 |
+| `version` | `1.2.0` | SemVer，同一 slug 下必须递增；每次内容变更都要升版本 |
 | `displayName` | `口播视频包装工具` | 市场展示名 |
 | `name` / `description` | 保留 | WorkBuddy 识别用，description 含触发词 |
 | `summary` / `tags` / `category` / `platforms` / `license` / `visibility` | 见 SKILL.md | 建议项，不阻断发布 |
@@ -32,7 +32,7 @@
 
 | 网页发布 | CLI 发布 |
 |---|---|
-| 登录 skillhub.cn → 技能发布页 → 填写名称 / 描述 / 版本 `1.1.1` / 分类「视频创作」/ 标签 → 上传扁平包 → 提交审核 | `skillhub login` → `skillhub init --name --category` → `skillhub push` → `skillhub publish --dry-run` → `skillhub publish` |
+| 登录 skillhub.cn → 技能发布页 → 填写名称 / 描述 / 版本 `1.2.0` / 分类「视频创作」/ 标签 → 上传扁平包 → 提交审核 | `skillhub login` → `skillhub init --name --category` → `skillhub push` → `skillhub publish --dry-run` → `skillhub publish` |
 
 CLI 用 `--visibility public|unlisted|private|org` 控制可见范围。
 
@@ -42,7 +42,7 @@ CLI 用 `--visibility public|unlisted|private|org` 控制可见范围。
 
 1. 打开 `https://skillhub.cn/dashboard/publish` → 选「从 GitHub 导入」→ 刷新，扫描已绑定账号公开仓库中的 `SKILL.md`（单次最多导入 5 个）。
 2. 勾选 `oral-video-packager` → 下一步进入确认页。
-3. 逐项核对 Slug（实时查重）、显示名称、版本号 `1.1.1`、描述（留空自动读 `SKILL.md` 的 description）、图标。
+3. 逐项核对 Slug（实时查重）、显示名称、版本号 `1.2.0`、描述（留空自动读 `SKILL.md` 的 description）、图标。
 4. 点发布 → 三线安全审核 → 上架。以后代码 `git push` 后回到导入页重新同步并递增 `version` 即可，无需重传 zip。
 
 平台限制：仓库 >20MiB、候选目录 >10MiB、文件数 >200 会被拦；`.png` 等二进制文件在导入时会被过滤，因此 `icon.png` 需在确认页单独上传或改用预设图标。后端重打包会剥掉目录前缀，保证 ZIP 根目录就是 `SKILL.md`。本仓库约 20 个源码文件、百 KB 量级，符合限制。
@@ -103,6 +103,7 @@ python scripts/package_video.py --config <你的config.json> --clip-ranges "0,12
 | `background_time` | number | 取原片哪一秒作为动画段的模糊背景，默认时长 × 0.35 |
 | `animation_frames` | string | 可选，外部透明 PNG 帧序列目录；填了即启用外部后端 |
 | `clip` | object | 可选，切片剪辑方案；填了即在包装前自动切片并重映射时间轴，见 1d |
+| `shots` | object / array | 可选，内容驱动分镜；填了即按语义切换画面分格，见 1e |
 | `title_card` | object | `{text, sub, show:[起,止]}` 片头金黄大标题 |
 | `person` | object | 竖排人物名片，字段与输入方式见「1b. 人物名片」 |
 | `subtitles` | array | `[{start, end, lines:[...]}]`，行内 `**文字**` 为金黄高亮 |
@@ -270,6 +271,54 @@ python scripts/clip_video.py --config c.json --mode silence --output short.mp4
 
 `batch: true` 时在 `<workdir>/clips/` 产出每段 `clip_XX.mp4`（未包装的原片片段）与 `clip_XX.json`（只含该段元素、已重映射，可直接 `--config` 跑包装，输出为 `clip_XX_packaged.mp4`）。主成片仍照常输出拼接后的完整版本。
 
+## 1e. 内容驱动分镜（shots）
+
+默认路径把所有 `segments` 画成同一套「模糊背景 + 圆形小真人 + 金黄卡片」。启用 `shots` 后，时间轴被切成语义镜头，每段按内容选不同画面分格。
+
+### 八种版式
+
+| layout | 画面构成 | 自动触发 |
+|---|---|---|
+| `full` | 全屏真人 + 底部压暗 | 长句讲解、动作占比高的段 |
+| `focus` | 局部推近（zoom 1.0→1.18）+ 暗角 | 动作段交替、表情强调 |
+| `pip` | 模糊背景 + 圆形小真人 + 右侧要点条 | 普通讲解（兼容旧观感） |
+| `split_v` | 左真人 / 右数字对比卡，金色竖分割线 | 含数字、百分比、比较词；`stats` `compare` |
+| `split_h` | 上真人 / 下步骤条 | `steps` `funnel` `timeline` |
+| `grid` | 2×2 宫格：真人 + 三张要点卡 | `points` `features` `matrix` |
+| `card` | 全屏深色渐变大字卡，真人不出 | 金句、`quote` |
+| `kinetic` | 全屏真人 + 巨幅关键词 + 金色横线 | 短情绪句、语气强调 |
+
+### 配置
+
+| 字段 | 默认 | 说明 |
+|---|---|---|
+| `shots` | — | `{"mode":"auto"}` 自动规划；也可直接给 shot 数组，或 `{"plan":[...]}` 手动指定 |
+| `shots.transition` | `fade` | `fade` 交叉淡化 / `slide` 右侧滑入 / `cut` 硬切 |
+| `shots.transition_duration` | 0.28 | 转场秒数 |
+| `shots.min_duration` | 1.15 | 短于此的切片并入相邻镜头，避免碎片 |
+| `shots.debug_label` | false | 画面角标显示 SHOT 编号与版式名，仅调试用 |
+
+自动规划规则：知识段按 `kind` 映射且**不被字幕边界切开**；台词含数字/比较词 → `split_v`；≤9 字的情绪短句 → `kinetic`/`card`；>20 字长句 → `full`；字幕时长占比 <35% 的段视为动作段 → `full`/`focus`；连续两段同版式时强制换一个。
+
+### 产物与回灌
+
+`shot_plan.json` 同时写到 `workdir` 和成片目录，含每段 `start/end/layout/transition/headline/items/reason/subtitle`。人工改完用 `--shot-plan <file>` 回灌；`--plan-only` 只出计划不渲染，便于先看版式分配是否合理。字幕 ASS 会按 `SUB_STYLE` 自动加 `\pos/\fs`，分屏时移到左半、宫格时下移、大字卡时缩小。
+
+### 命令
+
+```bash
+python scripts/package_video.py --config c.json --auto-shots
+python scripts/package_video.py --config c.json --plan-only
+python scripts/package_video.py --config c.json --shot-plan shot_plan.json
+python scripts/package_video.py --config c.json --shot-transition slide
+python scripts/shot_engine.py --config c.json --duration 29.8 --plan-only --out plan.json
+python scripts/package_video.py --config c.json --no-shots   # 回退固定模板
+```
+
+### 实现与边界
+
+`shot_engine.render()` 把源抽成 JPEG 帧序列，逐帧按当前 shot 排版（Pillow），镜头切换点渲染前后两套版式做 crossfade/slide，输出 `shots_main.mp4`（含原声）；`compose_shots()` 只负责烧 ASS 字幕与拼片尾。旧路径 `build_frames()` + `compose()` 完全不动，`--no-shots` 可随时回退。分镜模式**不绘制竖排人物名片**、不走 Remotion / 外部帧后端；`segments` 仍用于规划版式与提供文案，但不再由 `Animator` 绘制。质检拼板会自动采样每种不同版式各一帧。
+
 ## 2. 动画后端
 
 | 后端 | 命令 | 动效特征 | 适用 |
@@ -370,18 +419,20 @@ npm install --registry=https://registry.npmmirror.com --no-audit --no-fund
 | 切片后字幕/动画错位或消失 | 查看终端的 dropped 计数与 `clipped_config.json`；被剪区的字幕会被丢弃，跨切点动画会被裁剪，必要时调整 `clip.ranges` 避开知识点 |
 | 切片声音有爆音 | 每段已有 20ms 淡入淡出；若源音频本身削波，调小 `clip.silence.noise` 或改用外部音频处理 |
 | `--clip-only` 报错 | 需要配置里有 `clip` 段或命令行给 `--clip-ranges`；`--no-clip` 与 `--clip-only` 不能同时使用 |
+| 分镜模式首帧报 `FileNotFoundError: 00000.jpg` | ffmpeg image2 可能从 00001 起编号；引擎已改为按实际文件列表索引并在抽帧时显式 `-start_number 0` |
+| 分镜模式没有人物名片 / Remotion 动效 | 设计如此，见 1e；用 `--no-shots` 回退旧路径 |
 | 手机素材画中画错位 / 黑屏 | 确认日志出现 `normalize ... -> 720x1280@30`；未归一化时 PiP `crop=400:580:160:250` 会越界 |
 | `show` 报 `list <= float` | 重映射后的 `show` 是多区间列表；引擎用 `in_ranges()` 处理，勿改回单区间假设 |
 
 ## 9. 版本与发布
 
-当前版本 **`1.1.1`**（1.1.0 新增切片剪辑与 `clip` 预设；1.1.1 增加非标准规格素材自动归一化）。任何内容改动都要同步递增版本，否则 SkillHub 会判重复提交。
+当前版本 **`1.2.0`**（1.1.0 切片剪辑、1.1.1 规格自适应、1.2.0 内容驱动分镜）。任何内容改动都要同步递增版本，否则 SkillHub 会判重复提交。
 
 | 位置 | 作用 |
 |---|---|
 | `SKILL.md` frontmatter `version` | SkillHub / WorkBuddy 读取的主版本 |
 | `manifest.yaml` `version` | SkillHub 从 GitHub 导入时读取，必须与上一行一致 |
-| `git tag v1.1.1` | GitHub Release 与自动发版的触发器 |
+| `git tag v1.2.0` | GitHub Release 与自动发版的触发器 |
 
 发布流程：
 
@@ -390,14 +441,14 @@ npm install --registry=https://registry.npmmirror.com --no-audit --no-fund
 python scripts/make_dist.py --src . --out dist
 #    dist/oral-video-packager.zip            带外层目录，WorkBuddy「添加技能 → 上传技能」
 #    dist/oral-video-packager-skillhub.zip  扁平根目录 SKILL.md，SkillHub 网页上传
-#    dist/oral-video-packager-v1.1.1.zip    Release 附件（WorkBuddy 格式）
+#    dist/oral-video-packager-v1.2.0.zip    Release 附件（WorkBuddy 格式）
 
 # 2. 提交并打 tag；push tag 会自动建 GitHub Release 并挂上 zip
 git add -A && git commit -m "feat: ..."
-git tag -a v1.1.1 -m "v1.1.1"
-git push origin main && git push origin v1.1.1
+git tag -a v1.2.0 -m "v1.2.0"
+git push origin main && git push origin v1.2.0
 ```
 
 `.github/workflows/release.yml` 在 push `v*` tag 时运行 `make_dist.py`，用仓库自带的 `GITHUB_TOKEN` 创建 Release 并附上 zip。首次使用需在仓库 Settings → Actions → General → Workflow permissions 勾选 **Read and write permissions**，否则建 Release 会因权限不足失败（不影响 tag 本身）。
 
-SkillHub 侧：从 GitHub 导入时确认页版本号填 `1.1.1`（历史版本已提交过则必须递增）；网页上传则用扁平包。历史 Release 资产不覆盖。
+SkillHub 侧：从 GitHub 导入时确认页版本号填 `1.2.0`（历史版本已提交过则必须递增）；网页上传则用扁平包。历史 Release 资产不覆盖。

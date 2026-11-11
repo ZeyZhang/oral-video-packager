@@ -14,6 +14,7 @@
 | 片头片尾 | 金黄大标题、常驻免责条、黑底圆形头像片尾卡 |
 | 切片剪辑 | 长视频按时间码 / 自动去静音切成精华片段，字幕与动画时间轴自动重映射；支持批量导出多条切片 |
 | 规格自适应 | 非 720×1280 / 非 30fps 的手机竖屏素材自动等比缩放补边、统一帧率与音频格式，避免叠层与画中画坐标越界 |
+| 内容驱动分镜 | 按语义把时间轴切成多个镜头，自动切换全屏 / 推近 / 左右分屏 / 上下分屏 / 2×2 宫格 / 大字卡 / 巨幅关键词 / 画中画八种版式，带转场，字幕位置随版式变化 |
 | 合规 | 医学/健康类内容输出审签清单，标记 `DRAFT_PENDING_HUMAN_REVIEW`，不自动发布 |
 
 ## 适用场景
@@ -28,7 +29,7 @@
 | `clip` | 长视频切片、精华剪辑、去静音 | `assets/config.clip.example.json` |
 | `general` | 泛知识、观点口播 | — |
 
-`--list-profiles` 查看全部；配置里显式写 `disclaimer` 可覆盖预设。除原有医学动画外，新增 `features` / `compare` / `stats` / `funnel` / `steps` / `matrix` 六种通用动画，Pillow 与 Remotion 两端都支持。
+配置加 `shots: {"mode": "auto"}` 可启用内容驱动分镜（见 `references/workflow.md` 第 1e 节），`--plan-only` 只出 `shot_plan.json` 供人工调整，`--shot-plan` 回灌，`--no-shots` 回退固定模板。`--list-profiles` 查看全部；配置里显式写 `disclaimer` 可覆盖预设。除原有医学动画外，新增 `features` / `compare` / `stats` / `funnel` / `steps` / `matrix` 六种通用动画，Pillow 与 Remotion 两端都支持。
 
 切片剪辑由 `scripts/clip_video.py` 提供，是包装前的可选预处理阶段，详见 `references/workflow.md` 第 1d 节。
 
@@ -121,6 +122,7 @@ SKILL.md                      技能入口与工作流
 scripts/package_video.py      配置驱动主引擎
 scripts/clip_video.py         切片剪辑与时间轴重映射
 scripts/make_dist.py          生成两个发布 zip 并校验版本一致性
+scripts/shot_engine.py        内容驱动分镜规划与八种版式逐帧渲染
 scripts/render_remotion.py    Remotion 动画层渲染
 scripts/analyze_reference.py  参考成片拆解
 assets/config*.example.json   医疗 / 产品 / 电商 / 切片四套配置示例
@@ -138,15 +140,15 @@ SkillHub 上架流程见 `references/workflow.md` 第 0 节，网页发布入口
 
 ## 版本与发布
 
-当前版本 **1.1.1**（1.1.0 加切片剪辑，1.1.1 加规格自适应）。`SKILL.md` 的 `version` 与 `manifest.yaml` 的 `version` 必须一致，`make_dist.py` 会在打包时校验，不一致直接中止。
+当前版本 **1.2.0**（1.1.0 加切片剪辑、1.1.1 加规格自适应、1.2.0 加内容驱动分镜）。`SKILL.md` 的 `version` 与 `manifest.yaml` 的 `version` 必须一致，`make_dist.py` 会在打包时校验，不一致直接中止。
 
 ```bash
 python scripts/make_dist.py --src . --out dist   # 两个发布包 + 版本化 zip + SHA256SUMS
-git tag -a v1.1.1 -m "v1.1.1"
-git push origin main && git push origin v1.1.1  # push tag 自动建 Release 并挂 zip
+git tag -a v1.2.0 -m "v1.2.0"
+git push origin main && git push origin v1.2.0  # push tag 自动建 Release 并挂 zip
 ```
 
-自动发版由 `.github/workflows/release.yml` 完成；首次使用需在仓库 Settings → Actions → General 开启 **Read and write permissions**。SkillHub 从 GitHub 导入时确认页填 `1.1.1`（历史版本已提交过必须递增），历史 Release 资产不会被覆盖。
+自动发版由 `.github/workflows/release.yml` 完成；首次使用需在仓库 Settings → Actions → General 开启 **Read and write permissions**。SkillHub 从 GitHub 导入时确认页填 `1.2.0`（历史版本已提交过必须递增），历史 Release 资产不会被覆盖。
 
 ## 许可证
 

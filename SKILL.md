@@ -4,14 +4,16 @@ description: >-
   把真人出镜的竖屏口播素材包装成带逐句字幕、人物介绍条、知识动画、
   免责声明与片尾卡的成片，适用于医学科普、产品介绍、电商产品分析、
   切片剪辑、知识讲解等场景，按 profile 切换免责声明与审签清单；
-  支持长视频按时间码/去静音切出精华片段并自动重映射字幕与动画时间轴，
+  支持长视频按时间码/去静音切出精华片段并自动重映射字幕与动画时间轴；
+  可按内容语义把时间轴切成多个镜头，自动切换全屏/推近/分屏/宫格/大字卡等
+  八种画面分格并带转场，字幕位置随版式变化，不套固定模板；
   支持 Pillow / Remotion / 外部逐帧三种动画后端，可复用参考成片视觉规格。
   本 skill 应在用户提供「素材视频 + 参考成片」或要求为口播视频添加
   字幕、人物介绍、知识动画、片尾包装、产品卖点、数据图表，或要求把
-  长视频切片剪辑、去静音、提取精彩片段时使用。
+  长视频切片剪辑、去静音、提取精彩片段，或要求按内容切换分镜/版式/分屏时使用。
 agent_created: true
 slug: oral-video-packager
-version: 1.1.1
+version: 1.2.0
 displayName: 口播视频包装工具
 summary: 把真人出镜的口播素材包装成带逐句字幕、竖排人物名片、知识动画与片尾的竖屏成片
 category: 视频创作
@@ -40,6 +42,7 @@ visibility: public
 - 需要把一次性剪辑流程固化，供后续批量/日更复用
 - 长口播要切成精华短片、剔除停顿/废话、自动去静音，或批量产出多条切片
 - 医学科普、产品介绍、电商分析、知识讲解类短视频的包装与发布前自检
+- 不希望所有段落都长成同一个模板，要求「按内容切换画面分格 / 分镜版式」
 
 ## bundled 资源
 
@@ -50,6 +53,7 @@ visibility: public
 | `scripts/clip_video.py` | 切片剪辑：keep/cut/silence 三种模式、时间轴重映射、批量导出 |
 | `scripts/render_remotion.py` | 用 Remotion 渲染自然动效的透明 PNG 帧序列 |
 | `scripts/make_dist.py` | 从源码生成 WorkBuddy / SkillHub 两个发布 zip |
+| `scripts/shot_engine.py` | 内容驱动分镜：自动规划 shot_plan.json + 八种画面分格逐帧渲染与转场 |
 | `remotion/` | Remotion 模板工程（React + spring/interpolate + SVG 动画） |
 | `assets/config.example.json` | 完整可跑的医学科普配置示例 |
 | `assets/config.clip.example.json` | 切片剪辑配置示例（配置按原片时间轴写，引擎自动重映射） |
@@ -126,6 +130,23 @@ python scripts/clip_video.py --source long.mp4 --ranges "0,12 18,33" --output sh
 
 边界要说清：切点是硬切、不做转场；起点落在被剪区的字幕会被丢弃，跨切点的动画/显示区间会被裁剪，终端会打印丢弃数量；`edit_map.json` 记录原时间→新时间映射供人工复核。`batch: true` 时在 `<workdir>/clips/` 产出每段 `clip_XX.mp4` 与已重映射的 `clip_XX.json`，主成片仍照常输出拼接版。**切片内容必须人工核对切点没有截断半句话、条件或否定词**。
 
+### 4d. 内容驱动分镜（可选，推荐）
+
+默认所有动画段共用「模糊背景 + 圆形小真人」模板。配置加 `shots` 段后，引擎按语义把时间轴切成多个镜头，每段分配不同画面分格（全屏 / 推近 / 左右分屏 / 上下分屏 / 2×2 宫格 / 全屏大字卡 / 巨幅关键词 / 讲解画中画），并做交叉淡化或滑入转场；字幕位置随版式自动调整。
+
+```json
+"shots": {"mode": "auto", "transition": "fade", "min_duration": 1.15}
+```
+
+```bash
+python scripts/package_video.py --config c.json --auto-shots   # 自动规划并出片
+python scripts/package_video.py --config c.json --plan-only    # 只出 shot_plan.json
+python scripts/package_video.py --config c.json --shot-plan shot_plan.json  # 人工改完回灌
+python scripts/package_video.py --config c.json --no-shots     # 回退固定模板路径
+```
+
+`shot_plan.json` 每段记录 `layout` / `headline` / `items` / `reason` / `subtitle`，可逐项人工改写。知识段按 `kind` 映射版式且不会被字幕边界切开；含数字或比较词走分屏，短情绪句走大字卡，长讲解走全屏少干扰，动作占比高的段保留完整画面。完整规则见 `references/workflow.md` 第 1e 节。
+
 ### 5. 选择动画后端
 
 - **内置 Pillow（默认，零依赖）**：加工程序化示意动画，已用 easeOutCubic 缓动与逐条淡入，适合快速出片。
@@ -183,5 +204,6 @@ python scripts/package_video.py --config <config.json>
 - 叠层按 720×1280（9:16）设计画布绘制。源视频规格不符时（如 540×960@19fps 手机竖屏）会**自动等比缩放/补黑边，并统一为 720×1280@30fps、48kHz 立体声**；切片阶段顺手完成，无切片时由包装入口单独转码一次。非 9:16 素材会加黑边。
 - 人物名片竖排规格取自参考成片 `2.mp4`；换风格改 `package_video.py` 的 `CARD` 常量与 `draw_person()`。
 - 精确口型同步、数字人替身不在本工具范围内；本工具保留真人出镜。
-- 切片是**帧精确硬切**，不做转场与补帧；需柔和过渡请在外部剪辑软件里加工 `clipped.mp4`。跨切点的字幕/动画会被裁剪或丢弃，不做智能补写。
+- 切片是**帧精确硬切**，不做转场与补帧；需柔和过渡请在外部剪辑软件里加工 `clipped.mp4`。跨切点的字幕/动画会被裁剪或丢弃，不做智能补写。**分镜模式**提供镜头间的淡化/滑入转场，但不改变切片点本身。
+- 分镜模式由 `shot_engine.py` 逐帧重排画面，**不叠加竖排人物名片**，也不走 Remotion / 外部帧后端（版式由分镜决定）；需要人物名片或 Remotion 动效时用 `--no-shots` 回退旧路径。
 - 依赖本机 `ffmpeg` / `ffprobe`、Python 3.9+ 与 Pillow；Remotion 后端另需 Node 18+ 与 Chrome/Edge。
