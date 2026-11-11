@@ -140,15 +140,15 @@ SkillHub 上架流程见 `references/workflow.md` 第 0 节，网页发布入口
 
 ## 版本与发布
 
-当前版本 **1.3.1**（1.2.0 加内容驱动分镜、1.3.0 收敛为克制排版、1.3.1 改为全片固定色调）。`SKILL.md` 的 `version` 与 `manifest.yaml` 的 `version` 必须一致，`make_dist.py` 会在打包时校验，不一致直接中止。
+当前版本 **1.3.2**（1.3.1 全片固定色调；1.3.2 规范 `description` 触发文案，便于 SkillHub 上架）。`SKILL.md` 的 `version` 与 `manifest.yaml` 的 `version` 必须一致，`make_dist.py` 会在打包时校验，不一致直接中止。
 
 ```bash
 python scripts/make_dist.py --src . --out dist   # 两个发布包 + 版本化 zip + SHA256SUMS
-git tag -a v1.3.1 -m "v1.3.1"
-git push origin main && git push origin v1.3.1  # push tag 自动建 Release 并挂 zip
+git tag -a v1.3.2 -m "v1.3.2"
+git push origin main && git push origin v1.3.2  # push tag 自动建 Release 并挂 zip
 ```
 
-自动发版由 `.github/workflows/release.yml` 完成；首次使用需在仓库 Settings → Actions → General 开启 **Read and write permissions**。SkillHub 从 GitHub 导入时确认页填 `1.3.1`（历史版本已提交过必须递增），历史 Release 资产不会被覆盖。
+自动发版由 `.github/workflows/release.yml` 完成；首次使用需在仓库 Settings → Actions → General 开启 **Read and write permissions**。SkillHub 从 GitHub 导入时确认页填 `1.3.2`（历史版本已提交过必须递增），历史 Release 资产不会被覆盖。
 
 ## 许可证
 

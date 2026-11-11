@@ -23,16 +23,18 @@
 | 字段 | 本包取值 | 说明 |
 |---|---|---|
 | `slug` | `oral-video-packager` | kebab-case、全网唯一、**提交后不可修改**；提示 409 被占用时改成带账号前缀后重新打包 |
-| `version` | `1.3.1` | SemVer，同一 slug 下必须递增；每次内容变更都要升版本 |
+| `version` | `1.3.2` | SemVer，同一 slug 下必须递增；每次内容变更都要升版本 |
 | `displayName` | `口播视频包装工具` | 市场展示名 |
 | `name` / `description` | 保留 | WorkBuddy 识别用，description 含触发词 |
 | `summary` / `tags` / `category` / `platforms` / `license` / `visibility` | 见 SKILL.md | 建议项，不阻断发布 |
+
+**描述（description）怎么填**：网页表单里该字段选填、上限 1024 字符，但**建议手填**而非留空（留空会去读 `SKILL.md` 的 frontmatter）。推荐 80–200 字三段式：首句讲用户价值（这工具帮我做什么）→ 中段列核心能力 → 尾段以 `Use when`（或「适用场景：」）集中放触发词。触发词必须保留（字幕、人物名片、知识动画、切片剪辑、去静音、参考成片等），否则对话里不会被自动匹配；避免「最强 / 效率提升 10 倍」等夸大表述，内容合规扫描会拦。本包 `SKILL.md` 与 `manifest.yaml` 的 description 已按此规范写成同一段文案，因此从 GitHub 导入时描述留空也会读到规范版本。
 
 常见驳回原因：`slug` 冲突或格式不对、ZIP 根目录无 `SKILL.md`、包超过 10MB、描述含夸大宣传、脚本被判有隐私或网络风险、审核期间重复提交。被拒后在「版本历史」查看拒绝原因与安全报告（科恩 / 云鼎），修完重新打包并递增 `version` 再提交。
 
 | 网页发布 | CLI 发布 |
 |---|---|
-| 登录 skillhub.cn → 技能发布页 → 填写名称 / 描述 / 版本 `1.3.1` / 分类「视频创作」/ 标签 → 上传扁平包 → 提交审核 | `skillhub login` → `skillhub init --name --category` → `skillhub push` → `skillhub publish --dry-run` → `skillhub publish` |
+| 登录 skillhub.cn → 技能发布页 → 填写名称 / 描述 / 版本 `1.3.2` / 分类「视频创作」/ 标签 → 上传扁平包 → 提交审核 | `skillhub login` → `skillhub init --name --category` → `skillhub push` → `skillhub publish --dry-run` → `skillhub publish` |
 
 CLI 用 `--visibility public|unlisted|private|org` 控制可见范围。
 
@@ -42,7 +44,7 @@ CLI 用 `--visibility public|unlisted|private|org` 控制可见范围。
 
 1. 打开 `https://skillhub.cn/dashboard/publish` → 选「从 GitHub 导入」→ 刷新，扫描已绑定账号公开仓库中的 `SKILL.md`（单次最多导入 5 个）。
 2. 勾选 `oral-video-packager` → 下一步进入确认页。
-3. 逐项核对 Slug（实时查重）、显示名称、版本号 `1.3.1`、描述（留空自动读 `SKILL.md` 的 description）、图标。
+3. 逐项核对 Slug（实时查重）、显示名称、版本号 `1.3.2`、描述（留空自动读 `SKILL.md` 的 description）、图标。
 4. 点发布 → 三线安全审核 → 上架。以后代码 `git push` 后回到导入页重新同步并递增 `version` 即可，无需重传 zip。
 
 平台限制：仓库 >20MiB、候选目录 >10MiB、文件数 >200 会被拦；`.png` 等二进制文件在导入时会被过滤，因此 `icon.png` 需在确认页单独上传或改用预设图标。后端重打包会剥掉目录前缀，保证 ZIP 根目录就是 `SKILL.md`。本仓库约 20 个源码文件、百 KB 量级，符合限制。
@@ -430,13 +432,13 @@ npm install --registry=https://registry.npmmirror.com --no-audit --no-fund
 
 ## 9. 版本与发布
 
-当前版本 **`1.3.1`**（1.3.0 克制统一排版 + 主题配色；1.3.1 把色调改为全片固定一套，不再逐段跳色）。任何内容改动都要同步递增版本，否则 SkillHub 会判重复提交。
+当前版本 **`1.3.2`**（1.3.1 全片固定色调；1.3.2 把 `description` 改为三段式触发文案）。任何内容改动都要同步递增版本，否则 SkillHub 会判重复提交。
 
 | 位置 | 作用 |
 |---|---|
 | `SKILL.md` frontmatter `version` | SkillHub / WorkBuddy 读取的主版本 |
 | `manifest.yaml` `version` | SkillHub 从 GitHub 导入时读取，必须与上一行一致 |
-| `git tag v1.3.1` | GitHub Release 与自动发版的触发器 |
+| `git tag v1.3.2` | GitHub Release 与自动发版的触发器 |
 
 发布流程：
 
@@ -445,14 +447,14 @@ npm install --registry=https://registry.npmmirror.com --no-audit --no-fund
 python scripts/make_dist.py --src . --out dist
 #    dist/oral-video-packager.zip            带外层目录，WorkBuddy「添加技能 → 上传技能」
 #    dist/oral-video-packager-skillhub.zip  扁平根目录 SKILL.md，SkillHub 网页上传
-#    dist/oral-video-packager-v1.3.1.zip    Release 附件（WorkBuddy 格式）
+#    dist/oral-video-packager-v1.3.2.zip    Release 附件（WorkBuddy 格式）
 
 # 2. 提交并打 tag；push tag 会自动建 GitHub Release 并挂上 zip
 git add -A && git commit -m "feat: ..."
-git tag -a v1.3.1 -m "v1.3.1"
-git push origin main && git push origin v1.3.1
+git tag -a v1.3.2 -m "v1.3.2"
+git push origin main && git push origin v1.3.2
 ```
 
 `.github/workflows/release.yml` 在 push `v*` tag 时运行 `make_dist.py`，用仓库自带的 `GITHUB_TOKEN` 创建 Release 并附上 zip。首次使用需在仓库 Settings → Actions → General → Workflow permissions 勾选 **Read and write permissions**，否则建 Release 会因权限不足失败（不影响 tag 本身）。
 
-SkillHub 侧：从 GitHub 导入时确认页版本号填 `1.3.1`（历史版本已提交过则必须递增）；网页上传则用扁平包。历史 Release 资产不覆盖。
+SkillHub 侧：从 GitHub 导入时确认页版本号填 `1.3.2`（历史版本已提交过则必须递增）；网页上传则用扁平包。历史 Release 资产不覆盖。
