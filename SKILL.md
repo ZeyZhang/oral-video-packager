@@ -5,15 +5,15 @@ description: >-
   免责声明与片尾卡的成片，适用于医学科普、产品介绍、电商产品分析、
   切片剪辑、知识讲解等场景，按 profile 切换免责声明与审签清单；
   支持长视频按时间码/去静音切出精华片段并自动重映射字幕与动画时间轴；
-  可按内容语义把时间轴切成多个镜头，自动切换全屏/推近/分屏/宫格/大字卡等
-  八种画面分格并带转场，字幕位置随版式变化，不套固定模板；
+  可按内容语义把时间轴切成多个镜头，默认统一排版骨架，用主题配色、整帧色调
+  分级、缓慢推近与柔和转场区分风格（切片类不花哨）；也可切换八种画面分格；
   支持 Pillow / Remotion / 外部逐帧三种动画后端，可复用参考成片视觉规格。
   本 skill 应在用户提供「素材视频 + 参考成片」或要求为口播视频添加
   字幕、人物介绍、知识动画、片尾包装、产品卖点、数据图表，或要求把
   长视频切片剪辑、去静音、提取精彩片段，或要求按内容切换分镜/版式/分屏时使用。
 agent_created: true
 slug: oral-video-packager
-version: 1.2.0
+version: 1.3.0
 displayName: 口播视频包装工具
 summary: 把真人出镜的口播素材包装成带逐句字幕、竖排人物名片、知识动画与片尾的竖屏成片
 category: 视频创作
@@ -130,13 +130,16 @@ python scripts/clip_video.py --source long.mp4 --ranges "0,12 18,33" --output sh
 
 边界要说清：切点是硬切、不做转场；起点落在被剪区的字幕会被丢弃，跨切点的动画/显示区间会被裁剪，终端会打印丢弃数量；`edit_map.json` 记录原时间→新时间映射供人工复核。`batch: true` 时在 `<workdir>/clips/` 产出每段 `clip_XX.mp4` 与已重映射的 `clip_XX.json`，主成片仍照常输出拼接版。**切片内容必须人工核对切点没有截断半句话、条件或否定词**。
 
-### 4d. 内容驱动分镜（可选，推荐）
+### 4d. 内容驱动分镜（可选，默认克制）
 
-默认所有动画段共用「模糊背景 + 圆形小真人」模板。配置加 `shots` 段后，引擎按语义把时间轴切成多个镜头，每段分配不同画面分格（全屏 / 推近 / 左右分屏 / 上下分屏 / 2×2 宫格 / 全屏大字卡 / 巨幅关键词 / 讲解画中画），并做交叉淡化或滑入转场；字幕位置随版式自动调整。
+默认所有段落**共用一套统一网格**（真人始终全屏为主体、顶部主题胶囊、底部字幕安全区与进度线），风格差异交给**主题配色与轻特效**：整帧色调分级（暖橙 / 青灰 / 知识蓝 / 金 / 柔粉 / 青绿）、缓慢推近、暗角、标签淡入滑入、柔和交叉淡化、字幕逐句淡入。切片 / 生活向内容尤其不该把画面切成各种分屏宫格。
 
 ```json
-"shots": {"mode": "auto", "transition": "fade", "min_duration": 1.15}
+"shots": {"mode": "auto", "style": "restrained", "theme": "auto",
+          "transition": "fade", "transition_duration": 0.4}
 ```
+
+内容只决定**用哪套配色、哪一段轻推近、哪里放一条金句色带**：知识段统一蓝色且标题并入顶部标签，动作段保留完整画面，普通段沿用当前主题色（颜色不频繁跳），`push` 全片最多 2 次、`caption` 最多 1 次。`clip` / `general` 场景完全不虚化真人；`medical` / `product` / `ecommerce` 才允许最多 2 段精简画中画。
 
 ```bash
 python scripts/package_video.py --config c.json --auto-shots   # 自动规划并出片
@@ -145,7 +148,7 @@ python scripts/package_video.py --config c.json --shot-plan shot_plan.json  # �
 python scripts/package_video.py --config c.json --no-shots     # 回退固定模板路径
 ```
 
-`shot_plan.json` 每段记录 `layout` / `headline` / `items` / `reason` / `subtitle`，可逐项人工改写。知识段按 `kind` 映射版式且不会被字幕边界切开；含数字或比较词走分屏，短情绪句走大字卡，长讲解走全屏少干扰，动作占比高的段保留完整画面。完整规则见 `references/workflow.md` 第 1e 节。
+`shots.style: "expressive"` 可切回 1.2.0 那套八版式（全屏 / 推近 / 左右分屏 / 上下分屏 / 宫格 / 大字卡 / 巨幅关键词 / 画中画），适合信息密度高的知识类内容，但**切片类不建议用**。`shot_plan.json` 每段记录 `layout` / `palette` / `headline` / `reason` / `subtitle`，可逐项人工改写。完整规则见 `references/workflow.md` 第 1e 节。
 
 ### 5. 选择动画后端
 

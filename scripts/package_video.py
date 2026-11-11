@@ -636,7 +636,8 @@ def inline(s, gold_hex):
     i = 0
     while i < len(s):
         if s[i:i + 2] == "**":
-            out += ("{\\c&HFFFFFF&}" if on else "{\\c&H" + gold_hex + "&}") + buf
+            out += buf + ("{\\c&HFFFFFF&}" if on
+                          else "{\\c&H" + gold_hex + "&}")
             buf, on = "", not on
             i += 2
         else:
@@ -877,9 +878,10 @@ def make_sheet(final, work, info, cfg, plan=None):
     if plan:
         seen, pts = set(), []
         for s in plan.get("shots", []):
-            if s["layout"] in seen:
+            key = (s["layout"], s.get("palette", ""))
+            if key in seen:
                 continue
-            seen.add(s["layout"])
+            seen.add(key)
             pts.append((s["start"] + s["end"]) / 2)
         pts = pts[:7]
     else:
@@ -922,7 +924,9 @@ def write_checklist(cfg, work, outdir, final, plan=None):
             if s["layout"] not in layouts:
                 layouts.append(s["layout"])
         data["shots"] = {"count": len(plan["shots"]),
+                         "style": plan.get("style", "expressive"),
                          "layouts": layouts,
+                         "palettes": plan.get("palettes", []),
                          "transition": plan.get("transition"),
                          "plan_file": "shot_plan.json"}
         data["checks"].append(

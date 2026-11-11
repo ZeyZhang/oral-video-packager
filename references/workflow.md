@@ -23,7 +23,7 @@
 | 字段 | 本包取值 | 说明 |
 |---|---|---|
 | `slug` | `oral-video-packager` | kebab-case、全网唯一、**提交后不可修改**；提示 409 被占用时改成带账号前缀后重新打包 |
-| `version` | `1.2.0` | SemVer，同一 slug 下必须递增；每次内容变更都要升版本 |
+| `version` | `1.3.0` | SemVer，同一 slug 下必须递增；每次内容变更都要升版本 |
 | `displayName` | `口播视频包装工具` | 市场展示名 |
 | `name` / `description` | 保留 | WorkBuddy 识别用，description 含触发词 |
 | `summary` / `tags` / `category` / `platforms` / `license` / `visibility` | 见 SKILL.md | 建议项，不阻断发布 |
@@ -32,7 +32,7 @@
 
 | 网页发布 | CLI 发布 |
 |---|---|
-| 登录 skillhub.cn → 技能发布页 → 填写名称 / 描述 / 版本 `1.2.0` / 分类「视频创作」/ 标签 → 上传扁平包 → 提交审核 | `skillhub login` → `skillhub init --name --category` → `skillhub push` → `skillhub publish --dry-run` → `skillhub publish` |
+| 登录 skillhub.cn → 技能发布页 → 填写名称 / 描述 / 版本 `1.3.0` / 分类「视频创作」/ 标签 → 上传扁平包 → 提交审核 | `skillhub login` → `skillhub init --name --category` → `skillhub push` → `skillhub publish --dry-run` → `skillhub publish` |
 
 CLI 用 `--visibility public|unlisted|private|org` 控制可见范围。
 
@@ -42,7 +42,7 @@ CLI 用 `--visibility public|unlisted|private|org` 控制可见范围。
 
 1. 打开 `https://skillhub.cn/dashboard/publish` → 选「从 GitHub 导入」→ 刷新，扫描已绑定账号公开仓库中的 `SKILL.md`（单次最多导入 5 个）。
 2. 勾选 `oral-video-packager` → 下一步进入确认页。
-3. 逐项核对 Slug（实时查重）、显示名称、版本号 `1.2.0`、描述（留空自动读 `SKILL.md` 的 description）、图标。
+3. 逐项核对 Slug（实时查重）、显示名称、版本号 `1.3.0`、描述（留空自动读 `SKILL.md` 的 description）、图标。
 4. 点发布 → 三线安全审核 → 上架。以后代码 `git push` 后回到导入页重新同步并递增 `version` 即可，无需重传 zip。
 
 平台限制：仓库 >20MiB、候选目录 >10MiB、文件数 >200 会被拦；`.png` 等二进制文件在导入时会被过滤，因此 `icon.png` 需在确认页单独上传或改用预设图标。后端重打包会剥掉目录前缀，保证 ZIP 根目录就是 `SKILL.md`。本仓库约 20 个源码文件、百 KB 量级，符合限制。
@@ -273,36 +273,41 @@ python scripts/clip_video.py --config c.json --mode silence --output short.mp4
 
 ## 1e. 内容驱动分镜（shots）
 
-默认路径把所有 `segments` 画成同一套「模糊背景 + 圆形小真人 + 金黄卡片」。启用 `shots` 后，时间轴被切成语义镜头，每段按内容选不同画面分格。
+默认路径把所有 `segments` 画成同一套「模糊背景 + 圆形小真人 + 金黄卡片」。启用 `shots` 后按内容切分镜头；**默认 `restrained` 风格**：版式统一克制，差异靠配色与特效，而不是把画面切成各种分格。
 
-### 八种版式
+### 默认：restrained（统一网格 + 主题配色）
 
-| layout | 画面构成 | 自动触发 |
-|---|---|---|
-| `full` | 全屏真人 + 底部压暗 | 长句讲解、动作占比高的段 |
-| `focus` | 局部推近（zoom 1.0→1.18）+ 暗角 | 动作段交替、表情强调 |
-| `pip` | 模糊背景 + 圆形小真人 + 右侧要点条 | 普通讲解（兼容旧观感） |
-| `split_v` | 左真人 / 右数字对比卡，金色竖分割线 | 含数字、百分比、比较词；`stats` `compare` |
-| `split_h` | 上真人 / 下步骤条 | `steps` `funnel` `timeline` |
-| `grid` | 2×2 宫格：真人 + 三张要点卡 | `points` `features` `matrix` |
-| `card` | 全屏深色渐变大字卡，真人不出 | 金句、`quote` |
-| `kinetic` | 全屏真人 + 巨幅关键词 + 金色横线 | 短情绪句、语气强调 |
+所有段落共用同一套排版骨架：真人始终全屏为主体；顶部固定位置一个主题胶囊标签（淡入 + 轻微滑入）；底部固定渐变字幕安全区 + 全片进度线；四角暗角。构图从头到尾不变。
+
+| 元素 | 实现 |
+|---|---|
+| 6 套主题色 | `amber` 开场暖橙 / `slate` 日常青灰 / `blue` 知识点蓝 / `gold` 划重点金 / `rose` 心情柔粉 / `sage` 收尾青绿；`PROFILE_THEME` 按 profile 给起始色，`shots.theme` 可固定一套 |
+| 整帧色调分级 | 对 RGB 三通道施加不同增益（LUT 缓存，快），画面明显偏色但细节与构图不变；`shots.grade: false` 可关 |
+| 轻特效 | Ken Burns 缓慢推近（clean 1.03 / push 1.10）、暗角、底部渐变、顶部标签淡入滑入、进度线随全局时间推进、镜头间 smoothstep 交叉淡化、ASS 字幕 `\fad(180,180)` |
+| 4 种克制版式 | `clean` 全屏（默认）/ `push` 轻推近 / `caption` 唯一一条金句色带 / `blurpip` 精简画中画 |
+
+自动规则（关键：**颜色不频繁跳、版式变化要少**）：知识段统一蓝色且标题并入顶部标签；含数字/比较词不再改成分屏；短情绪句最多触发 1 次金句色带；动作占比高的段保留完整画面；普通段沿用上一段主题色；`push` ≤2 次、`caption` ≤1 次。**`clip` / `general` 场景完全不虚化真人**（`blurpip` 禁用），只有 `medical` / `product` / `ecommerce` 允许最多 2 段精简画中画。
+
+### 可选：expressive（八版式，1.2.0 行为）
+
+`shots.style: "expressive"` 恢复按语义切换 `full` / `focus` / `pip` / `split_v` / `split_h` / `grid` / `card` / `kinetic` 八种画面分格，映射规则：知识段按 `kind`（`quote`→card、`points`/`features`→grid、`steps`/`funnel`→split_h、`stats`/`compare`→split_v）、含数字/比较词→split_v、短情绪句→kinetic、长句→full、动作段→full/focus、连续同版式强制换。适合信息密度高的知识类，**切片 / 生活向不建议**（画面容易显得乱）。
 
 ### 配置
 
 | 字段 | 默认 | 说明 |
 |---|---|---|
-| `shots` | — | `{"mode":"auto"}` 自动规划；也可直接给 shot 数组，或 `{"plan":[...]}` 手动指定 |
-| `shots.transition` | `fade` | `fade` 交叉淡化 / `slide` 右侧滑入 / `cut` 硬切 |
-| `shots.transition_duration` | 0.28 | 转场秒数 |
-| `shots.min_duration` | 1.15 | 短于此的切片并入相邻镜头，避免碎片 |
-| `shots.debug_label` | false | 画面角标显示 SHOT 编号与版式名，仅调试用 |
-
-自动规划规则：知识段按 `kind` 映射且**不被字幕边界切开**；台词含数字/比较词 → `split_v`；≤9 字的情绪短句 → `kinetic`/`card`；>20 字长句 → `full`；字幕时长占比 <35% 的段视为动作段 → `full`/`focus`；连续两段同版式时强制换一个。
+| `shots` | — | `{"mode":"auto","style":"restrained"}`；也可直接给 shot 数组或 `{"plan":[...]}` |
+| `shots.style` | `restrained` | `restrained` 统一网格+配色 / `expressive` 八版式 |
+| `shots.theme` | `auto` | 固定一套色板名；`auto` 按语义与 profile 分配 |
+| `shots.grade` | true | 整帧色调分级开关 |
+| `shots.transition` | `fade` | `fade` / `slide` / `cut` |
+| `shots.transition_duration` | 0.40 | 转场秒数（smoothstep 平滑） |
+| `shots.min_duration` | 1.15 | 短切片并入相邻镜头 |
+| `shots.debug_label` | false | 调试角标（仅 expressive 生效） |
 
 ### 产物与回灌
 
-`shot_plan.json` 同时写到 `workdir` 和成片目录，含每段 `start/end/layout/transition/headline/items/reason/subtitle`。人工改完用 `--shot-plan <file>` 回灌；`--plan-only` 只出计划不渲染，便于先看版式分配是否合理。字幕 ASS 会按 `SUB_STYLE` 自动加 `\pos/\fs`，分屏时移到左半、宫格时下移、大字卡时缩小。
+`shot_plan.json` 同时写到 `workdir` 和成片目录，含每段 `start/end/layout/palette/headline/items/reason/subtitle/progress`。人工改完用 `--shot-plan <file>` 回灌；`--plan-only` 只出计划。字幕 ASS 按 shot 的 `subtitle` 自动加 `\fad/\pos/\fs`。质检拼板按 `(layout, palette)` 去重采样，保证能看到不同配色。
 
 ### 命令
 
@@ -310,14 +315,13 @@ python scripts/clip_video.py --config c.json --mode silence --output short.mp4
 python scripts/package_video.py --config c.json --auto-shots
 python scripts/package_video.py --config c.json --plan-only
 python scripts/package_video.py --config c.json --shot-plan shot_plan.json
-python scripts/package_video.py --config c.json --shot-transition slide
 python scripts/shot_engine.py --config c.json --duration 29.8 --plan-only --out plan.json
 python scripts/package_video.py --config c.json --no-shots   # 回退固定模板
 ```
 
 ### 实现与边界
 
-`shot_engine.render()` 把源抽成 JPEG 帧序列，逐帧按当前 shot 排版（Pillow），镜头切换点渲染前后两套版式做 crossfade/slide，输出 `shots_main.mp4`（含原声）；`compose_shots()` 只负责烧 ASS 字幕与拼片尾。旧路径 `build_frames()` + `compose()` 完全不动，`--no-shots` 可随时回退。分镜模式**不绘制竖排人物名片**、不走 Remotion / 外部帧后端；`segments` 仍用于规划版式与提供文案，但不再由 `Animator` 绘制。质检拼板会自动采样每种不同版式各一帧。
+`shot_engine.render()` 把源抽成 JPEG 帧序列，逐帧按当前 shot 渲染（Pillow），镜头切换点渲染前后两套做 crossfade/slide，输出 `shots_main.mp4`（含原声）；`compose_shots()` 只烧 ASS 字幕与拼片尾。旧路径 `build_frames()` + `compose()` 完全不动。分镜模式**不绘制竖排人物名片**、不走 Remotion / 外部帧后端；`segments` 用于规划配色与顶部标签文案，不再由 `Animator` 绘制。切片点本身仍是硬切，转场只发生在镜头之间。
 
 ## 2. 动画后端
 
@@ -426,13 +430,13 @@ npm install --registry=https://registry.npmmirror.com --no-audit --no-fund
 
 ## 9. 版本与发布
 
-当前版本 **`1.2.0`**（1.1.0 切片剪辑、1.1.1 规格自适应、1.2.0 内容驱动分镜）。任何内容改动都要同步递增版本，否则 SkillHub 会判重复提交。
+当前版本 **`1.3.0`**（1.1.0 切片剪辑、1.1.1 规格自适应、1.3.0 内容驱动分镜）。任何内容改动都要同步递增版本，否则 SkillHub 会判重复提交。
 
 | 位置 | 作用 |
 |---|---|
 | `SKILL.md` frontmatter `version` | SkillHub / WorkBuddy 读取的主版本 |
 | `manifest.yaml` `version` | SkillHub 从 GitHub 导入时读取，必须与上一行一致 |
-| `git tag v1.2.0` | GitHub Release 与自动发版的触发器 |
+| `git tag v1.3.0` | GitHub Release 与自动发版的触发器 |
 
 发布流程：
 
@@ -441,14 +445,14 @@ npm install --registry=https://registry.npmmirror.com --no-audit --no-fund
 python scripts/make_dist.py --src . --out dist
 #    dist/oral-video-packager.zip            带外层目录，WorkBuddy「添加技能 → 上传技能」
 #    dist/oral-video-packager-skillhub.zip  扁平根目录 SKILL.md，SkillHub 网页上传
-#    dist/oral-video-packager-v1.2.0.zip    Release 附件（WorkBuddy 格式）
+#    dist/oral-video-packager-v1.3.0.zip    Release 附件（WorkBuddy 格式）
 
 # 2. 提交并打 tag；push tag 会自动建 GitHub Release 并挂上 zip
 git add -A && git commit -m "feat: ..."
-git tag -a v1.2.0 -m "v1.2.0"
-git push origin main && git push origin v1.2.0
+git tag -a v1.3.0 -m "v1.3.0"
+git push origin main && git push origin v1.3.0
 ```
 
 `.github/workflows/release.yml` 在 push `v*` tag 时运行 `make_dist.py`，用仓库自带的 `GITHUB_TOKEN` 创建 Release 并附上 zip。首次使用需在仓库 Settings → Actions → General → Workflow permissions 勾选 **Read and write permissions**，否则建 Release 会因权限不足失败（不影响 tag 本身）。
 
-SkillHub 侧：从 GitHub 导入时确认页版本号填 `1.2.0`（历史版本已提交过则必须递增）；网页上传则用扁平包。历史 Release 资产不覆盖。
+SkillHub 侧：从 GitHub 导入时确认页版本号填 `1.3.0`（历史版本已提交过则必须递增）；网页上传则用扁平包。历史 Release 资产不覆盖。

@@ -46,6 +46,39 @@ BLUE = (46, 132, 226)
 LAYOUTS = ("full", "focus", "pip", "split_v", "split_h", "grid", "card", "kinetic")
 TRANSITIONS = ("fade", "slide", "cut")
 
+# 克制模式：版式统一（全屏真人为主），差异只体现在配色与轻动效，
+# 不再把画面切成各种分屏/宫格/巨字卡。
+RESTRAINED_LAYOUTS = ("clean", "push", "caption", "blurpip")
+
+PALETTES = {
+    "amber": {"accent": (238, 170, 72), "light": (255, 218, 152),
+              "tint": (44, 28, 12), "label": "开场"},
+    "slate": {"accent": (146, 182, 208), "light": (216, 234, 246),
+              "tint": (14, 26, 40), "label": "日常"},
+    "blue":  {"accent": (78, 158, 226), "light": (174, 218, 250),
+              "tint": (10, 26, 50), "label": "知识点"},
+    "gold":  {"accent": (226, 178, 38), "light": (245, 214, 112),
+              "tint": (34, 26, 8), "label": "划重点"},
+    "sage":  {"accent": (126, 196, 152), "light": (202, 236, 208),
+              "tint": (12, 32, 24), "label": "收尾"},
+    "rose":  {"accent": (226, 132, 148), "light": (248, 200, 208),
+              "tint": (38, 16, 24), "label": "心情"},
+}
+PROFILE_THEME = {
+    "clip": "amber", "medical": "blue", "product": "gold",
+    "ecommerce": "slate", "general": "amber",
+}
+
+# 主题色调分级：对 RGB 通道做不同增益，整幅画面偏色但构图与细节不变。
+PALETTE_GAINS = {
+    "amber": (1.08, 1.00, 0.90),
+    "slate": (0.94, 1.00, 1.08),
+    "blue":  (0.92, 0.99, 1.11),
+    "gold":  (1.08, 1.02, 0.89),
+    "sage":  (0.95, 1.05, 0.97),
+    "rose":  (1.08, 0.96, 1.00),
+}
+
 # subtitle placement per layout (ASS \pos anchor, font size)
 SUB_STYLE = {
     "full": ((360, 1090), 40),
@@ -219,6 +252,99 @@ def choose_layout(text, seg, prev, index, has_speech):
     return cand
 
 
+def _restrained_palette(cfg, opts, seg, text, ratio, i, total, prev):
+    fixed = opts.get("theme")
+    if fixed in PALETTES:
+        return fixed
+    if seg and seg.get("kind") in KIND_LAYOUT:
+        return "blue"
+    t = clean(text)
+    if i == 0:
+        return PROFILE_THEME.get(cfg.get("profile"), "amber")
+    if i >= total - 1:
+        return "sage"
+    if ratio < 0.35:
+        return "slate"
+    if (QUOTE_RE.search(t) or EMO_RE.search(t)) and len(t) <= 14:
+        return "rose"
+    return prev or PROFILE_THEME.get(cfg.get("profile"), "amber")
+
+
+def _restrained_layout(seg, text, ratio, prev, counts, total, rich):
+    """切片/生活向：真人始终在画面里，只保留 clean + 少量 push/caption。"""
+    if seg and rich and counts["blurpip"] < 2:
+        return "blurpip"
+    t = clean(text)
+    if ratio < 0.35:
+        return "clean"
+    if (QUOTE_RE.search(t) or EMO_RE.search(t)) and len(t) <= 14 \
+            and counts["caption"] < 1:
+        return "caption"
+    if prev == "clean" and counts["push"] < 2 and total >= 4:
+        return "push"
+    return "clean"
+
+
+def _finish_restrained(cfg, opts, raw, dur, transition):
+    """统一网格 + 主题配色：版式克制，差异靠颜色与轻特效。"""
+    segs = cfg.get("segments", [])
+    total = len(raw)
+    rich = cfg.get("profile") in ("medical", "product", "ecommerce")
+    counts = {"push": 0, "caption": 0, "blurpip": 0}
+    shots, prev_pal, prev_lay = [], None, None
+    for i, (a, b) in enumerate(raw):
+        seg = next((s for s in segs
+                    if float(s["start"]) <= a < float(s["end"])), None)
+        cs = _cues_in(cfg, a, b)
+        text = " / ".join(clean(x) for c in cs for x in
+                          (c.get("lines") if isinstance(c.get("lines"), list)
+                           else [c.get("lines")]))
+        speech = sum(max(0.0, min(b, float(c["end"])) -
+                         max(a, float(c["start"]))) for c in cs)
+        ratio = speech / max(0.1, b - a)
+        pal = _restrained_palette(cfg, opts, seg, text, ratio,
+                                  i, total, prev_pal)
+        lay = _restrained_layout(seg, text, ratio, prev_lay,
+                                 counts, total, rich)
+        if lay in counts:
+            counts[lay] += 1
+        items = _seg_items(seg) if seg else []
+        headline = ""
+        if lay == "caption":
+            headline = (text.split(" / ")[0] if text else "")[:14]
+        elif seg:
+            headline = clean(seg.get("title") or "")[:20]
+        pos, size = ((500, 1080), 32) if lay == "blurpip" else \
+                    ((360, 1090), 40)
+        shots.append({
+            "index": i + 1,
+            "start": round(a, 3), "end": round(b, 3),
+            "layout": lay, "palette": pal,
+            "transition": "cut" if i == 0 else transition,
+            "headline": headline, "items": items,
+            "kicker": (clean(seg.get("title") or "")[:10] if seg
+                       else PALETTES[pal]["label"]),
+            "text": text[:120],
+            "segment_kind": seg.get("kind") if seg else None,
+            "progress": round(a / max(0.1, dur), 4),
+            "span": round((b - a) / max(0.1, dur), 4),
+            "subtitle": {"pos": list(pos), "size": size},
+            "reason": ("开场主题色 + 全屏干净画面" if i == 0 else
+                       "收尾主题色，画面收束" if i >= total - 1 else
+                       "知识段统一蓝色 + 精简画中画" if lay == "blurpip" else
+                       "动作段保留完整画面" if ratio < 0.35 else
+                       "唯一一条金句色带" if lay == "caption" else
+                       "轻推近强调" if lay == "push" else
+                       "沿用主题色，全屏干净画面"),
+        })
+        prev_pal, prev_lay = pal, lay
+    return {"version": 2, "style": "restrained",
+            "duration": round(dur, 3), "fps": FPS,
+            "transition": transition,
+            "palettes": sorted({s["palette"] for s in shots}),
+            "shots": shots}
+
+
 def build_plan(cfg, opts=None):
     """Split timeline into semantic shots and assign layouts."""
     opts = opts or {}
@@ -261,6 +387,9 @@ def build_plan(cfg, opts=None):
         merged[1][0] = merged[0][0]
         merged.pop(0)
     raw = [tuple(x) for x in merged]
+
+    if opts.get("style", "restrained") == "restrained":
+        return _finish_restrained(cfg, opts, raw, dur, transition)
 
     plan, prev = [], None
     for i, (a, b) in enumerate(raw):
@@ -331,7 +460,7 @@ def subtitle_prefix(plan, a, b):
     if not shot:
         return ""
     pos, size = shot["subtitle"]["pos"], shot["subtitle"]["size"]
-    return "{\\pos(%d,%d)\\fs%d}" % (pos[0], pos[1], size)
+    return "{\\fad(180,180)\\pos(%d,%d)\\fs%d}" % (pos[0], pos[1], size)
 
 
 def shot_at(plan, t):
@@ -361,9 +490,143 @@ def _title(d, shot, y=170, size=54, center=True, color=GOLD):
                    anchor_center=center, shadow=True)
 
 
+_VIG = None
+_BOTTOM_FADE = None
+_GRADE_LUT = {}
+
+
+def _grade(im, key):
+    """Fast per-channel LUT color grading (cached per palette)."""
+    if key not in _GRADE_LUT:
+        gr, gg, gb = PALETTE_GAINS.get(key, (1.0, 1.0, 1.0))
+        _GRADE_LUT[key] = (
+            [min(255, int(i * gr)) for i in range(256)],
+            [min(255, int(i * gg)) for i in range(256)],
+            [min(255, int(i * gb)) for i in range(256)],
+        )
+    r, g, b = im.split()
+    luts = _GRADE_LUT[key]
+    return Image.merge("RGB", (r.point(luts[0]), g.point(luts[1]),
+                               b.point(luts[2])))
+
+
+def _smooth(x):
+    x = min(1.0, max(0.0, x))
+    return x * x * (3 - 2 * x)
+
+
+def _vignette():
+    global _VIG
+    if _VIG is None:
+        g = Image.radial_gradient("L").resize((W, H), Image.BILINEAR)
+        _VIG = g.point(lambda v: int(v * 0.40))
+    return _VIG
+
+
+def _bottom_fade():
+    global _BOTTOM_FADE
+    if _BOTTOM_FADE is None:
+        lay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        d = ImageDraw.Draw(lay, "RGBA")
+        for y in range(280):
+            a = int(198 * (y / 279) ** 1.6)
+            d.line((0, H - 280 + y, W, H - 280 + y), fill=(6, 12, 22, a))
+        _BOTTOM_FADE = lay
+    return _BOTTOM_FADE
+
+
+def _render_restrained(src, shot, cfg, p):
+    """统一网格：真人始终为主体，风格差异交给配色、色调分级与轻动效。"""
+    pal = PALETTES.get(shot.get("palette"), PALETTES["amber"])
+    acc, light, tint = pal["accent"], pal["light"], pal["tint"]
+    lay = shot["layout"]
+    im = src.copy()
+
+    zoom = 1.0
+    if lay == "push":
+        zoom = 1.0 + 0.10 * _smooth(p * 1.4)
+    elif lay == "caption":
+        zoom = 1.0 + 0.02 * _smooth(p)
+    elif lay == "clean":
+        zoom = 1.0 + 0.03 * _smooth(p)
+    if zoom > 1.001:
+        im = cover(im, int(W / zoom), int(H / zoom),
+                   (0.5, 0.42)).resize((W, H), Image.LANCZOS)
+
+    if cfg.get("shots") is None or \
+            (isinstance(cfg.get("shots"), dict) and
+             cfg["shots"].get("grade", True)):
+        im = _grade(im, shot.get("palette", "amber"))
+
+    if lay == "blurpip":
+        bg = Image.blend(im.filter(ImageFilter.GaussianBlur(24)),
+                         Image.new("RGB", (W, H), (8, 14, 26)), 0.40)
+        im = bg
+        pip = cover(src, 240, 240, (0.5, 0.38))
+        m = Image.new("L", (240, 240), 0)
+        ImageDraw.Draw(m).ellipse((0, 0, 240, 240), fill=255)
+        im.paste(pip, (40, 760), m)
+        d = ImageDraw.Draw(im, "RGBA")
+        d.ellipse((36, 756, 284, 1004), outline=acc + (210,), width=3)
+        for i, s in enumerate((shot.get("items") or [])[:3]):
+            y = 300 + i * 112
+            d.rounded_rectangle((330, y, 680, y + 88), radius=14,
+                                fill=(16, 28, 46, 195))
+            d.ellipse((350, y + 36, 366, y + 52), fill=acc + (255,))
+            text_block(d, (382, y + 24), s, font(28), WHITE + (255,),
+                       280, 38, shadow=False)
+    else:
+        im.paste(Image.new("RGB", (W, H), (4, 8, 16)), (0, 0), _vignette())
+
+    im = Image.alpha_composite(im.convert("RGBA"),
+                               _bottom_fade()).convert("RGB")
+    d = ImageDraw.Draw(im, "RGBA")
+
+    # 顶部标签：统一位置，进场时淡入 + 轻微滑入
+    ent = _smooth(min(1.0, p * 3.0))
+    dx = int((1 - ent) * -18)
+    a = int(255 * ent)
+    label = shot.get("kicker", "")
+    cap_w = 46 + int(d.textlength(label, font=font(24)))
+    d.rounded_rectangle((48 + dx, 62, 48 + dx + cap_w, 106), radius=22,
+                        fill=acc + (int(215 * ent),),
+                        outline=light + (int(110 * ent),), width=1)
+    d.text((71 + dx, 70), label, font=font(24),
+           fill=(255, 255, 255, a))
+    d.text((72 + dx, 112), "%02d" % shot["index"], font=font(18, False),
+           fill=(216, 226, 238, int(190 * ent)))
+    d.ellipse((656, 74, 674, 92), fill=acc + (a,))
+
+    if lay == "caption" and shot.get("headline"):
+        d.rounded_rectangle((70, 846, 650, 986), radius=18,
+                            fill=(10, 16, 28, 165))
+        d.rounded_rectangle((70, 846, 650, 986), radius=18,
+                            fill=acc + (58,), outline=acc + (215,), width=2)
+        d.rounded_rectangle((84, 868, 90, 964), radius=3,
+                            fill=acc + (255,))
+        text_block(d, (360, 884), shot["headline"], font(44),
+                   WHITE + (255,), 520, 56, anchor_center=True, shadow=True)
+
+    lines = (cfg.get("disclaimer") or [])[:3]
+    if lines:
+        for i, s in enumerate(lines):
+            f = font(18, False)
+            tw = d.textlength(s, font=f)
+            d.text(((W - tw) / 2, H - 30 * (len(lines) - i) - 10), s,
+                   font=f, fill=(232, 238, 246, 210))
+
+    prog = shot.get("progress", 0.0) + p * shot.get("span", 0.0)
+    px = int(W * min(1.0, prog))
+    d.rectangle((0, H - 6, px, H - 2), fill=acc + (235,))
+    d.ellipse((max(0, px - 5), H - 10, px + 5, H), fill=light + (235,))
+    return im
+
+
 def render_layout(src, shot, cfg, p):
     """Return a fully composed 720x1280 RGB frame for one shot."""
     lay = shot["layout"]
+    if lay in RESTRAINED_LAYOUTS:
+        return _render_restrained(src, shot, cfg, p)
     im = Image.new("RGB", (W, H), DARK)
     d = ImageDraw.Draw(im, "RGBA")
     items = [x for x in (shot.get("items") or []) if x]
@@ -519,7 +782,7 @@ def _finish(im, shot, cfg, p, show_title=False):
     return im
 
 
-def draw_title_overlay(frame, cfg, t):
+def draw_title_overlay(frame, cfg, t, palette=None):
     """Title card is time-based, not shot-based."""
     tc = cfg.get("title_card") or {}
     show = tc.get("show")
@@ -530,10 +793,12 @@ def draw_title_overlay(frame, cfg, t):
         return frame
     alpha = min(1.0, max(0.0, (t - a) / 0.4)) * \
         min(1.0, max(0.0, (b - t) / 0.4))
+    accent = PALETTES.get(palette, PALETTES["amber"])["light"] \
+        if palette else GOLD
     lay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     td = ImageDraw.Draw(lay, "RGBA")
     text_block(td, (W // 2, 180), tc.get("text", ""), font(60),
-               GOLD + (int(255 * alpha),), 640, 76,
+               accent + (int(255 * alpha),), 640, 76,
                anchor_center=True, shadow=True)
     if tc.get("sub"):
         text_block(td, (W // 2, 276), tc["sub"], font(30, False),
@@ -569,7 +834,8 @@ def render(cfg, plan, work, info, source=None):
               (len(paths), n))
 
     shots = plan["shots"]
-    tw = float(cfg.get("shots", {}).get("transition_duration", 0.28))
+    sc = cfg.get("shots") if isinstance(cfg.get("shots"), dict) else {}
+    tw = float((sc or {}).get("transition_duration", 0.40))
     cache = {}
     for i in range(n):
         t = i / fps
@@ -577,6 +843,8 @@ def render(cfg, plan, work, info, source=None):
         if t - cur["start"] < tw and cur["index"] > 1:
             prev = shots[cur["index"] - 2]
             k = min(1.0, max(0.0, (t - cur["start"]) / tw))
+            if cur["transition"] != "slide":
+                k = _smooth(k)
             f1 = _frame(paths, i, prev, cfg, cache, fps)
             f2 = _frame(paths, i, cur, cfg, cache, fps)
             if cur["transition"] == "slide":
@@ -590,7 +858,7 @@ def render(cfg, plan, work, info, source=None):
                 frame = Image.blend(f1, f2, k)
         else:
             frame = _frame(paths, i, cur, cfg, cache, fps)
-        frame = draw_title_overlay(frame, cfg, t)
+        frame = draw_title_overlay(frame, cfg, t, cur.get("palette"))
         frame.save(os.path.join(od, "%05d.jpg" % i), quality=92)
         if i % 300 == 0:
             print("      rendered %d/%d" % (i, n), flush=True)
@@ -632,8 +900,9 @@ def main():
         json.dump(plan, f, ensure_ascii=False, indent=2)
     print("PLAN ->", out, "(%d shots)" % len(plan["shots"]))
     for s in plan["shots"]:
-        print("  %5.2f-%5.2f  %-8s %-16s %s" %
-              (s["start"], s["end"], s["layout"], s["headline"][:16], s["reason"]))
+        print("  %5.2f-%5.2f  %-8s %-7s %-14s %s" %
+              (s["start"], s["end"], s["layout"],
+               s.get("palette", "-"), s["headline"][:14], s["reason"]))
 
 
 if __name__ == "__main__":
