@@ -2,10 +2,11 @@
 name: oral-video-packager
 description: >-
   把真人出镜的竖屏口播素材包装成带逐句字幕、人物介绍条、知识动画、
-  免责声明与片尾卡的成片，可复用参考成片的视觉规格，支持 Pillow /
-  Remotion / 外部逐帧三种动画后端，并内置医学科普合规与人工审签清单。
+  免责声明与片尾卡的成片，适用于医学科普、产品介绍、电商产品分析、
+  知识讲解等场景，按 profile 切换免责声明与审签清单；支持 Pillow /
+  Remotion / 外部逐帧三种动画后端，可复用参考成片的视觉规格。
   本 skill 应在用户提供「素材视频 + 参考成片」或要求为口播视频添加
-  字幕、人物介绍、知识动画、片尾包装时使用。
+  字幕、人物介绍、知识动画、片尾包装、产品卖点或数据图表时使用。
 agent_created: true
 slug: oral-video-packager
 version: 1.0.0
@@ -52,6 +53,10 @@ visibility: public
 ### 1. 收集输入
 
 向用户索取：素材视频绝对路径、参考成片路径（可选），以及名片四要素 `name`（姓名）/ `title`（机构）/ `department`（科室）/ `rank`（职称）。**人物信息必须由用户提供**，不得复用 `config.example.json` 里的示例值，也不得从工牌或参考片自行推断后当作用户输入。用户未提供时先询问；用户明确说留空才留空。空字段不绘制，不编造职称。
+
+### 1b. 选择场景预设
+
+按内容类型选 `profile`：`medical`（医学科普，默认）/ `product`（产品介绍）/ `ecommerce`（电商产品分析）/ `general`（通用口播）。预设决定底部免责声明、审签清单与推荐动画类型。命令行用 `--profile product`，`--list-profiles` 查看全部；示例见 `assets/config.product.example.json` 与 `assets/config.ecommerce.example.json`。
 
 ### 2. 拆解参考成片（有参考片时）
 
@@ -117,7 +122,11 @@ python scripts/package_video.py --config <config.json>
 
 主流程负责写 `config.json` 并执行引擎；不把医学判断或发布动作交给子 agent。
 
-## 合规硬约束（医学/健康内容）
+## 合规与审签
+
+引擎按 `profile` 输出对应审签清单（`review_checklist.json`），成片一律标记 `DRAFT_PENDING_HUMAN_REVIEW`、不自动发布；AI 生成合成标识由后期/发布环节处理。
+
+### medical（医学科普）
 
 依据 2025 年 8 月四部门《关于规范"自媒体"医疗科普行为的通知》：专业医疗科普需账号资质认证；引用转载、AI 生成合成内容、真实健康经历均须标注来源或生成合成标识；不得以健康知识形式变相发布医疗、药品、医疗器械、保健食品广告，同页面不得出现购物链接；严禁夸大疗效、虚构病例、假冒医生身份、AI 编造同质化涉医文案。
 

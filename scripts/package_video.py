@@ -185,6 +185,71 @@ def in_ranges(t, spec):
     return None
 
 
+PROFILES = {
+    "medical": {
+        "label": "医学科普",
+        "disclaimer": [
+            "医学科普 · 仅供参考 · 不作为诊疗依据，具体请遵医嘱",
+            "如有不适请及时到正规医院就诊；本片示意图为图形动画，非真实医学影像",
+        ],
+        "checks": [
+            "医学结论与口播原意一致，字幕仅删口癖、未新增或改写诊疗建议",
+            "由具备资质的医务人员完成内容审签并留档",
+            "人物条的姓名、职称、机构与执业信息一致且可核实",
+            "发布账号已完成平台医疗科普资质认证",
+            "AI 生成合成内容标识由后期/发布环节添加；免责声明与引用来源标注齐全",
+            "无疗效承诺、绝对化用语、虚构病例、药品器械导购或购物链接",
+        ],
+        "kinds": ["timeline", "scan", "resection", "quote", "points"],
+    },
+    "product": {
+        "label": "产品介绍",
+        "disclaimer": [
+            "产品介绍 · 参数、功能与效果以官方说明及实物为准",
+            "价格、活动与库存以页面实时信息为准；示意图为图形动画，非实拍演示",
+        ],
+        "checks": [
+            "产品名、型号、参数与官方资料一致，未夸大或虚构功能",
+            "无绝对化用语；比较性表述有可核实依据，未贬低同行",
+            "价格、促销、赠品与库存信息标注有效期与适用条件",
+            "引用的检测报告、认证、销量数据可溯源，未虚构案例或用户评价",
+            "人物肖像、品牌标识、音乐与字体均已获授权",
+            "AI 生成合成内容标识由后期/发布环节添加；免责声明与来源标注齐全",
+        ],
+        "kinds": ["features", "compare", "stats", "steps", "quote", "points"],
+    },
+    "ecommerce": {
+        "label": "电商产品分析",
+        "disclaimer": [
+            "本视频为数据分析与观点分享，不构成投资或经营建议",
+            "数据来源与统计口径以原始平台为准；结论随市场变化可能失效",
+        ],
+        "checks": [
+            "数据来源、时间区间与统计口径已在画面或说明中标注",
+            "竞品信息来自公开可核实渠道，未作不当比较或贬低同行",
+            "转化率、GMV、销量等数字未夸大，预测值明确标注为预测",
+            "价格与排名信息标注采集时间，避免时效误导",
+            "无刷单、虚假宣传、诱导交易或规避平台规则的内容",
+            "AI 生成合成内容标识由后期/发布环节添加；免责声明与来源标注齐全",
+        ],
+        "kinds": ["stats", "funnel", "compare", "matrix", "quote", "points"],
+    },
+    "general": {
+        "label": "通用口播",
+        "disclaimer": [],
+        "checks": [
+            "口播内容与字幕一致，未新增事实或改写原意",
+            "引用的数据、案例与第三方材料可溯源并已获授权",
+            "无绝对化用语、误导性表述或未经验证的承诺",
+            "人物信息、肖像、音乐与字体授权齐全",
+            "AI 生成合成内容标识由后期/发布环节添加",
+        ],
+        "kinds": ["stats", "features", "steps", "compare", "quote", "points"],
+    },
+}
+
+GENERIC_KINDS = ("features", "compare", "stats", "funnel", "steps", "matrix")
+
 CARD = {"x0": 93, "y0": 140, "panel_w": 63, "panel_h": 340,
         "name_w": 54, "name_h": 135}
 
@@ -298,6 +363,8 @@ class Animator:
             self._quote(im, d, seg, p, st)
         elif kind == "points":
             self._points(d, seg, p, st)
+        elif kind in GENERIC_KINDS:
+            getattr(self, "_" + kind)(d, seg, p, st)
 
         if seg.get("quote") and kind != "quote":
             ct(d, (DW / 2, 710 if kind != "points" else 690),
@@ -398,6 +465,118 @@ class Animator:
 
 
 # ---------------- 字幕 ----------------
+
+    # ---------------- 通用动画（产品 / 电商 / 通用口播） ----------------
+    def _features(self, d, seg, p, st):
+        pts = seg.get("points", [])[:6]
+        for i, s in enumerate(pts):
+            k = ease((p - i * 0.12) / 0.3)
+            if k <= 0:
+                continue
+            col, row = i % 2, i // 2
+            x0, y0 = 100 + col * 270, 330 + row * 118
+            d.rounded_rectangle((x0, y0, x0 + 250, y0 + 100), radius=12,
+                                fill=(12, 30, 52, int(215 * k)))
+            d.ellipse((x0 + 16, y0 + 26, x0 + 54, y0 + 64), fill=st.gold + (255,))
+            ct(d, (x0 + 35, y0 + 45), str(i + 1), font(20), (12, 30, 52, 255), shadow=False)
+            f = font(21)
+            lt(d, (x0 + 66, y0 + 26), str(s)[:12], f, st.white)
+            if len(str(s)) > 12:
+                lt(d, (x0 + 66, y0 + 54), str(s)[12:24], f, st.soft)
+
+    def _compare(self, d, seg, p, st):
+        cols = seg.get("columns", [])[:3]
+        if not cols:
+            return
+        n = len(cols)
+        gap, base_y, max_h = 30, 620, 280
+        w = (500 - gap * (n - 1)) / n
+        mx = max([float(c.get("value", 1)) for c in cols] + [1.0])
+        for i, c in enumerate(cols):
+            x0 = 110 + i * (w + gap)
+            x1 = x0 + w
+            k = ease((p - i * 0.15) / 0.5)
+            h = max_h * float(c.get("value", 0)) / mx * k
+            col = st.gold + (255,) if i == 0 else (88, 138, 198, 255)
+            d.rounded_rectangle((x0, base_y - h, x1, base_y), radius=10, fill=col)
+            ct(d, ((x0 + x1) / 2, base_y - h - 28), str(c.get("label", "")),
+               font(25), st.white)
+            ct(d, ((x0 + x1) / 2, base_y + 32), str(c.get("note", c.get("value", ""))),
+               font(21, False), st.soft, shadow=False)
+
+    def _stats(self, d, seg, p, st):
+        bars = seg.get("bars", [])[:6]
+        if not bars:
+            return
+        n = len(bars)
+        gap, base_y, max_h = 22, 620, 290
+        w = (500 - gap * (n - 1)) / n
+        mx = max([float(b.get("value", 1)) for b in bars] + [1.0])
+        d.line((100, base_y, 620, base_y), fill=(255, 255, 255, 130), width=3)
+        unit = seg.get("unit", "")
+        for i, b in enumerate(bars):
+            x0 = 100 + i * (w + gap)
+            k = ease((p - i * 0.1) / 0.5)
+            h = max_h * float(b.get("value", 0)) / mx * k
+            col = st.gold + (255,) if i == n - 1 else (70, 120, 185, 255)
+            d.rounded_rectangle((x0, base_y - h, x0 + w, base_y), radius=8, fill=col)
+            ct(d, (x0 + w / 2, base_y - h - 24),
+               "%s%s" % (b.get("value", ""), unit), font(21), st.white)
+            ct(d, (x0 + w / 2, base_y + 30), str(b.get("label", "")),
+               font(20, False), st.soft, shadow=False)
+
+    def _funnel(self, d, seg, p, st):
+        stages = seg.get("stages", [])[:5]
+        for i, s in enumerate(stages):
+            k = ease((p - i * 0.14) / 0.4)
+            if k <= 0:
+                continue
+            y0 = 318 + i * 78
+            half = 232 - i * 36
+            col = (int(28 + 18 * i), int(92 + 22 * i), int(196 - 18 * i), 235)
+            d.polygon([(360 - half, y0), (360 + half, y0),
+                       (360 - half + 36, y0 + 64), (360 + half - 36, y0 + 64)], fill=col)
+            ct(d, (360, y0 + 32),
+               "%s   %s" % (s.get("label", ""), s.get("value", "")), font(23), st.white)
+
+    def _steps(self, d, seg, p, st):
+        pts = seg.get("points", [])[:5]
+        if not pts:
+            return
+        y, x0, x1 = 470, 90, 630
+        d.line((x0, y, x1, y), fill=(255, 255, 255, 130), width=4)
+        for i, s in enumerate(pts):
+            k = ease((p - i * 0.15) / 0.35)
+            if k <= 0:
+                continue
+            x = x0 + (x1 - x0) * i / max(1, len(pts) - 1)
+            d.ellipse((x - 15, y - 15, x + 15, y + 15), fill=st.gold + (255,))
+            ct(d, (x, y - 56), str(s)[:9], font(21), st.white)
+            ct(d, (x, y + 50), "STEP %d" % (i + 1), font(18, False), st.soft, shadow=False)
+
+    def _matrix(self, d, seg, p, st):
+        cells = seg.get("cells", [])[:4]
+        if not cells:
+            return
+        axes = seg.get("axes", ["", ""])
+        for i, c in enumerate(cells):
+            k = ease((p - i * 0.14) / 0.4)
+            if k <= 0:
+                continue
+            col, row = i % 2, i // 2
+            x0, y0 = 130 + col * 240, 330 + row * 160
+            d.rounded_rectangle((x0, y0, x0 + 220, y0 + 140), radius=12,
+                                fill=(12, 30, 52, int(210 * k)),
+                                outline=st.gold + (255,), width=2)
+            ct(d, (x0 + 110, y0 + 44), str(c.get("label", "")), font(24), st.gold_light)
+            ct(d, (x0 + 110, y0 + 92), str(c.get("note", "")), font(20, False), st.soft,
+               shadow=False)
+        if axes[0]:
+            ct(d, (360, 300), str(axes[0]), font(20, False), st.soft, shadow=False)
+        if axes[1]:
+            ct(d, (80, 490), str(axes[1]), font(20, False), st.soft, shadow=False)
+
+
 def ass_time(t):
     return "%d:%02d:%05.2f" % (int(t // 3600), int(t // 60) % 60, t % 60)
 
@@ -634,28 +813,40 @@ def make_sheet(final, work, info, cfg):
 
 
 def write_checklist(cfg, work, outdir, final):
+    prof = cfg.get("_profile", "medical")
+    pdef = cfg.get("_profile_def", PROFILES["medical"])
     data = {
         "status": "DRAFT_PENDING_HUMAN_REVIEW",
+        "profile": prof,
+        "profile_label": pdef.get("label", prof),
         "output": final,
         "auto_publish": False,
         "ai_disclosure_in_video": any(
             "AI" in s or "人工智能" in s or "生成合成" in s
             for s in cfg.get("disclaimer", [])),
         "ai_disclosure_note": "不在画面烧录；由后期/发布环节按平台要求添加",
-        "checks": [
-            "医学结论与口播原意一致，字幕仅删口癖、未新增或改写诊疗建议",
-            "由具备资质的医务人员完成内容审签并留档",
-            "人物条的姓名、职称、机构与执业信息一致且可核实",
-            "发布账号已完成平台医疗科普资质认证",
-            "AI 生成合成内容标识由后期/发布环节添加；免责声明与引用来源标注齐全",
-            "无疗效承诺、绝对化用语、虚构病例、药品器械导购或购物链接",
-        ],
+        "checks": list(pdef.get("checks", [])),
     }
     for d in (work, outdir):
         if d:
             with open(os.path.join(d, "review_checklist.json"), "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
 
+
+
+def apply_profile(cfg, args):
+    """场景预设：显式配置优先，缺省值由 profile 提供，默认 medical 保持向后兼容。"""
+    name = args.profile or cfg.get("profile", "medical")
+    if name not in PROFILES:
+        raise SystemExit("unknown profile: %s (choose from %s)" %
+                         (name, ", ".join(PROFILES)))
+    pdef = PROFILES[name]
+    if "disclaimer" not in cfg:
+        cfg["disclaimer"] = list(pdef["disclaimer"])
+    cfg["profile"] = name
+    cfg["_profile"] = name
+    cfg["_profile_def"] = pdef
+    return cfg
 
 PERSON_FIELDS = (
     ("name", "person_name", "姓名"),
@@ -714,8 +905,14 @@ def preview_card(cfg, st, work, info, out):
 
 
 def main():
+    if "--list-profiles" in sys.argv:
+        for k, v in PROFILES.items():
+            print("%-12s %-12s %s" % (k, v["label"], " / ".join(v["kinds"])))
+        return
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
+    ap.add_argument("--profile", help="场景预设：medical / product / ecommerce / general")
+    ap.add_argument("--list-profiles", action="store_true", help="列出全部场景预设")
     ap.add_argument("--workdir")
     ap.add_argument("--output")
     ap.add_argument("--reuse-frames", action="store_true")
@@ -733,6 +930,7 @@ def main():
     args = ap.parse_args()
     with open(args.config, "r", encoding="utf-8") as f:
         cfg = json.load(f)
+    cfg = apply_profile(cfg, args)
     src = os.path.abspath(cfg["source"])
     cfg["source"] = src
     final = os.path.abspath(args.output or cfg.get("output") or
@@ -750,6 +948,7 @@ def main():
     if args.preview_card:
         preview_card(cfg, st, work, info, args.preview_card)
         return
+    print("[0/6] profile: %s (%s)" % (cfg["_profile"], cfg["_profile_def"]["label"]))
     print("[1/6] subtitles")
     build_subtitles(cfg, st, work, outdir)
     print("[2/6] assets")

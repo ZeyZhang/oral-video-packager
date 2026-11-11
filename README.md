@@ -14,6 +14,19 @@
 | 片头片尾 | 金黄大标题、常驻免责条、黑底圆形头像片尾卡 |
 | 合规 | 医学/健康类内容输出审签清单，标记 `DRAFT_PENDING_HUMAN_REVIEW`，不自动发布 |
 
+## 适用场景
+
+通过 `profile` 切换，预设决定免责声明、审签清单与推荐动画：
+
+| 值 | 场景 | 示例配置 |
+|---|---|---|
+| `medical`（默认） | 医学科普、健康讲解 | `assets/config.example.json` |
+| `product` | 产品介绍、发布、测评 | `assets/config.product.example.json` |
+| `ecommerce` | 电商数据、类目与竞品分析 | `assets/config.ecommerce.example.json` |
+| `general` | 泛知识、观点口播 | — |
+
+`--list-profiles` 查看全部；配置里显式写 `disclaimer` 可覆盖预设。除原有医学动画外，新增 `features` / `compare` / `stats` / `funnel` / `steps` / `matrix` 六种通用动画，Pillow 与 Remotion 两端都支持。
+
 ## 安装
 
 正式渠道是腾讯 SkillHub：在 WorkBuddy 左侧「专家·技能·连接器」→ 技能 → SkillHub 分类搜索 `oral-video-packager` 一键安装；或在对话里说「找一个能把口播视频包装成带字幕、人物名片和知识动画成片的技能」。安装后新开一个对话生效。

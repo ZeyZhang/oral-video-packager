@@ -1,0 +1,99 @@
+{
+  "_note": "产品介绍示例。source / output / workdir 是占位路径，请替换为本机绝对路径；person 信息必须由用户提供。未写 disclaimer，自动使用 product 预设的免责声明与审签清单。",
+  "source": "/path/to/product_talk.mp4",
+  "output": "/path/to/output/product_talk_final.mp4",
+  "workdir": "/path/to/output/.packager_work",
+  "profile": "product",
+  "background_time": 5,
+
+  "title_card": {
+    "text": "这款产品到底值不值",
+    "sub": "三个维度说清楚",
+    "show": [0.3, 2.0]
+  },
+
+  "person": {
+    "name": "张三",
+    "title": "某某科技",
+    "department": "产品部",
+    "rank": "产品负责人",
+    "show": [[2.0, 12.0]]
+  },
+
+  "subtitles": [
+    {"start": 0.8, "end": 4.0, "lines": ["这款产品上市半年", "到底值不值得买"]},
+    {"start": 4.2, "end": 8.0, "lines": ["我从三个维度", "给大家拆一遍"]},
+    {"start": 8.2, "end": 15.0, "lines": ["先看**三个核心卖点**"]},
+    {"start": 15.2, "end": 18.0, "lines": ["再看它和同价位的差距"]},
+    {"start": 18.2, "end": 25.0, "lines": ["横向对比之后", "结论就比较清楚了"]},
+    {"start": 25.2, "end": 28.0, "lines": ["销量数据也能说明问题"]},
+    {"start": 28.2, "end": 35.0, "lines": ["近半年的走势是这样的"]},
+    {"start": 35.2, "end": 38.0, "lines": ["最后说怎么用"]},
+    {"start": 38.2, "end": 45.0, "lines": ["**三步就能上手**"]},
+    {"start": 45.2, "end": 48.0, "lines": ["所以一句话总结"]},
+    {"start": 48.2, "end": 54.0, "lines": ["**先看需求，再看价格**"]}
+  ],
+
+  "segments": [
+    {
+      "start": 8.0, "end": 15.0, "kind": "features",
+      "title": "原因 ①  三个核心卖点",
+      "sub": "轻、快、续航久",
+      "points": ["整机仅 185g", "开机 1.2 秒", "续航 14 小时", "两年质保", "type-C 通用", "以旧换新"]
+    },
+    {
+      "start": 18.0, "end": 25.0, "kind": "compare",
+      "title": "原因 ②  同价位横向对比",
+      "sub": "综合体验评分",
+      "columns": [
+        {"label": "本款", "value": 92, "note": "92 分"},
+        {"label": "A 品牌", "value": 78, "note": "78 分"},
+        {"label": "B 品牌", "value": 71, "note": "71 分"}
+      ],
+      "quote": "差距主要在续航和售后"
+    },
+    {
+      "start": 28.0, "end": 35.0, "kind": "stats",
+      "title": "原因 ③  近半年销量",
+      "sub": "单位：万台",
+      "unit": "万",
+      "bars": [
+        {"label": "3月", "value": 12}, {"label": "4月", "value": 18},
+        {"label": "5月", "value": 16}, {"label": "6月", "value": 25},
+        {"label": "7月", "value": 31}, {"label": "8月", "value": 38}
+      ]
+    },
+    {
+      "start": 38.0, "end": 45.0, "kind": "steps",
+      "title": "三步上手",
+      "points": ["开箱验机", "App 配对", "导入设置", "开始使用"]
+    },
+    {
+      "start": 48.0, "end": 54.0, "kind": "quote",
+      "title": "记住一句话",
+      "lines": [
+        {"text": "先看需求", "color": "white", "at": 0.05},
+        {"text": "再看预算", "color": "white", "at": 0.25},
+        {"text": "别为用不上的功能买单", "color": "gold", "at": 0.45}
+      ],
+      "footer": "参数以官方页面为准"
+    }
+  ],
+
+  "ending": {
+    "duration": 2.0,
+    "text": "点赞  关注  收藏",
+    "footer": "参数、价格与活动以官方页面实时信息为准"
+  },
+
+  "style": {
+    "gold": [226, 178, 38],
+    "gold_light": [245, 210, 96],
+    "subtitle_size": 40,
+    "subtitle_margin_v": 176,
+    "shift_subtitles_in_segments": true,
+    "pip": [20, 770, 300, 435]
+  },
+
+  "audio": {"fade_out": [53.0, 1.0]}
+}

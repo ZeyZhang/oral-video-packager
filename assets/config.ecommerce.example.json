@@ -1,0 +1,112 @@
+{
+  "_note": "电商产品分析示例。source / output / workdir 是占位路径，请替换为本机绝对路径；person 信息必须由用户提供。未写 disclaimer，自动使用 ecommerce 预设的免责声明与审签清单。",
+  "source": "/path/to/ecom_analysis.mp4",
+  "output": "/path/to/output/ecom_analysis_final.mp4",
+  "workdir": "/path/to/output/.packager_work",
+  "profile": "ecommerce",
+  "background_time": 5,
+
+  "title_card": {
+    "text": "这个类目还能不能做",
+    "sub": "用数据拆一遍",
+    "show": [0.3, 2.0]
+  },
+
+  "person": {
+    "name": "李四",
+    "title": "某某数据工作室",
+    "department": "电商分析",
+    "rank": "主理人",
+    "show": [[2.0, 12.0]]
+  },
+
+  "subtitles": [
+    {"start": 0.8, "end": 4.0, "lines": ["最近很多人问", "这个类目还能不能进"]},
+    {"start": 4.2, "end": 8.0, "lines": ["先看大盘数据"]},
+    {"start": 8.2, "end": 15.0, "lines": ["**近半年销售额**是这样的"]},
+    {"start": 15.2, "end": 18.0, "lines": ["再看转化漏斗"]},
+    {"start": 18.2, "end": 25.0, "lines": ["流量到成交", "每一层掉了多少"]},
+    {"start": 25.2, "end": 28.0, "lines": ["然后对比头部三家"]},
+    {"start": 28.2, "end": 35.0, "lines": ["价格带和客单价差异明显"]},
+    {"start": 35.2, "end": 38.0, "lines": ["最后给一个定位判断"]},
+    {"start": 38.2, "end": 45.0, "lines": ["用四象限看机会点"]},
+    {"start": 45.2, "end": 48.0, "lines": ["所以结论是"]},
+    {"start": 48.2, "end": 54.0, "lines": ["**别看大盘，看缝隙**"]}
+  ],
+
+  "segments": [
+    {
+      "start": 8.0, "end": 15.0, "kind": "stats",
+      "title": "①  近半年大盘",
+      "sub": "类目销售额，单位：亿元",
+      "unit": "亿",
+      "bars": [
+        {"label": "3月", "value": 8.2}, {"label": "4月", "value": 9.1},
+        {"label": "5月", "value": 8.8}, {"label": "6月", "value": 12.4},
+        {"label": "7月", "value": 11.7}, {"label": "8月", "value": 14.2}
+      ],
+      "quote": "旺季集中在 6 月和 8 月"
+    },
+    {
+      "start": 18.0, "end": 25.0, "kind": "funnel",
+      "title": "②  转化漏斗",
+      "sub": "近 30 天，全类目均值",
+      "stages": [
+        {"label": "曝光", "value": "100 万"},
+        {"label": "点击", "value": "8.4 万"},
+        {"label": "加购", "value": "1.9 万"},
+        {"label": "成交", "value": "4200"}
+      ]
+    },
+    {
+      "start": 28.0, "end": 35.0, "kind": "compare",
+      "title": "③  头部三家客单价",
+      "sub": "单位：元",
+      "columns": [
+        {"label": "A 店", "value": 268, "note": "268 元"},
+        {"label": "B 店", "value": 189, "note": "189 元"},
+        {"label": "C 店", "value": 142, "note": "142 元"}
+      ],
+      "quote": "中低价格带竞争最密"
+    },
+    {
+      "start": 38.0, "end": 45.0, "kind": "matrix",
+      "title": "④  机会四象限",
+      "sub": "横轴：竞争度　纵轴：增速",
+      "axes": ["竞争度 →", "增速 ↑"],
+      "cells": [
+        {"label": "高增速 · 低竞争", "note": "优先切入"},
+        {"label": "高增速 · 高竞争", "note": "需差异化"},
+        {"label": "低增速 · 低竞争", "note": "维持观察"},
+        {"label": "低增速 · 高竞争", "note": "建议避开"}
+      ]
+    },
+    {
+      "start": 48.0, "end": 54.0, "kind": "quote",
+      "title": "记住一句话",
+      "lines": [
+        {"text": "大盘只说明天花板", "color": "white", "at": 0.05},
+        {"text": "漏斗才说明效率", "color": "white", "at": 0.25},
+        {"text": "别看大盘，看缝隙", "color": "gold", "at": 0.45}
+      ],
+      "footer": "数据来源与口径见说明"
+    }
+  ],
+
+  "ending": {
+    "duration": 2.0,
+    "text": "点赞  关注  收藏",
+    "footer": "数据分析与观点分享，不构成投资或经营建议"
+  },
+
+  "style": {
+    "gold": [226, 178, 38],
+    "gold_light": [245, 210, 96],
+    "subtitle_size": 40,
+    "subtitle_margin_v": 176,
+    "shift_subtitles_in_segments": true,
+    "pip": [20, 770, 300, 435]
+  },
+
+  "audio": {"fade_out": [53.0, 1.0]}
+}

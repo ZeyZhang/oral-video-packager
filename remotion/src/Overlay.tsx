@@ -11,7 +11,8 @@ import {
 export type Segment = {
   start: number;
   end: number;
-  kind: 'timeline' | 'scan' | 'resection' | 'quote' | 'points';
+  kind: 'timeline' | 'scan' | 'resection' | 'quote' | 'points'
+    | 'features' | 'compare' | 'stats' | 'funnel' | 'steps' | 'matrix';
   title?: string;
   sub?: string;
   quote?: string;
@@ -20,6 +21,12 @@ export type Segment = {
   points?: string[];
   lines?: {text: string; color?: 'gold' | 'white'; at?: number}[];
   footer?: string;
+  columns?: {label: string; value: number; note?: string}[];
+  bars?: {label: string; value: number}[];
+  stages?: {label: string; value: string | number}[];
+  cells?: {label: string; note?: string}[];
+  axes?: string[];
+  unit?: string;
 };
 
 export type OverlayProps = {
@@ -234,6 +241,97 @@ const Points: React.FC<Common> = ({seg, local, fps, goldLight}) => (<>
   ))}
 </>);
 
+
+const GENERIC_KINDS = ['features', 'compare', 'stats', 'funnel', 'steps', 'matrix'];
+
+const GenericViz: React.FC<Common> = ({seg, p, local, fps, dur, gold, goldLight}) => {
+  const card: React.CSSProperties = {
+    position: 'absolute', borderRadius: 14, background: 'rgba(12,30,52,0.82)',
+    border: '1px solid rgba(226,178,38,0.5)', color: '#fff', textAlign: 'center',
+    textShadow: SHADOW, boxSizing: 'border-box',
+  };
+  const rise = (i: number, step = 5) =>
+    spring({frame: local - i * step, fps, config: {damping: 21, stiffness: 90, mass: 0.9}});
+
+  if (seg.kind === 'features') {
+    return <>{ (seg.points ?? []).slice(0, 6).map((s, i) => {
+      const k = rise(i, 6);
+      return <div key={i} style={{...card, left: 92 + (i % 2) * 272, top: 320 + Math.floor(i / 2) * 112,
+        width: 252, height: 96, padding: '20px 12px', fontSize: 21, opacity: k,
+        transform: `translateY(${(1 - k) * 22}px)`}}>
+        <span style={{color: gold, marginRight: 10}}>{String(i + 1).padStart(2, '0')}</span>{s}
+      </div>;
+    }) }</>;
+  }
+
+  if (seg.kind === 'compare' || seg.kind === 'stats') {
+    const items = seg.kind === 'compare'
+      ? (seg.columns ?? []).map((c) => ({label: c.label, value: Number(c.value), note: String(c.note ?? c.value)}))
+      : (seg.bars ?? []).map((b) => ({label: b.label, value: Number(b.value), note: String(b.value) + (seg.unit ?? '')}));
+    const max = Math.max(1, ...items.map((x) => x.value));
+    const gap = 22, width = (520 - gap * Math.max(0, items.length - 1)) / Math.max(1, items.length);
+    return <>{items.map((it, i) => {
+      const k = rise(i, 5);
+      const h = 270 * (it.value / max) * interpolate(p, [0, 0.7], [0, 1], {
+        extrapolateRight: 'clamp', easing: Easing.out(Easing.cubic),
+      });
+      return <div key={i}>
+        <div style={{...card, left: 100 + i * (width + gap), top: 620 - h, width, height: h,
+          background: i === (seg.kind === 'compare' ? 0 : items.length - 1) ? gold : 'rgba(70,120,185,0.92)',
+          border: 'none', borderRadius: 10, opacity: k}} />
+        <div style={{...card, left: 100 + i * (width + gap) - 10, top: 596 - h, width: width + 20,
+          height: 30, background: 'transparent', border: 'none', fontSize: 21,
+          opacity: k}}>{it.note}</div>
+        <div style={{...card, left: 100 + i * (width + gap) - 10, top: 632, width: width + 20,
+          height: 30, background: 'transparent', border: 'none', fontSize: 20,
+          color: '#e2eaf0', opacity: k}}>{it.label}</div>
+      </div>;
+    })}</>;
+  }
+
+  if (seg.kind === 'funnel') {
+    return <>{(seg.stages ?? []).slice(0, 5).map((s, i) => {
+      const k = rise(i, 6);
+      const w = 464 - i * 72;
+      return <div key={i} style={{...card, left: 360 - w / 2, top: 318 + i * 78, width: w,
+        height: 64, lineHeight: '64px', fontSize: 23, opacity: k,
+        background: `rgba(${28 + i * 18},${92 + i * 22},${196 - i * 18},0.9)`,
+        clipPath: 'polygon(4% 0, 96% 0, 92% 100%, 8% 100%)'}}>
+        {s.label}　{s.value}
+      </div>;
+    })}</>;
+  }
+
+  if (seg.kind === 'steps') {
+    const pts = (seg.points ?? []).slice(0, 5);
+    return <><div style={{position: 'absolute', left: 90, top: 470, width: 540, height: 4,
+      background: 'rgba(255,255,255,0.35)'}} />
+      {pts.map((s, i) => {
+        const k = rise(i, 6);
+        const x = 90 + 540 * i / Math.max(1, pts.length - 1);
+        return <div key={i}>
+          <div style={{...card, left: x - 15, top: 455, width: 30, height: 30, borderRadius: 15,
+            background: gold, border: 'none', opacity: k}} />
+          <div style={{...card, left: x - 90, top: 396, width: 180, height: 40,
+            background: 'transparent', border: 'none', fontSize: 21, opacity: k}}>{s}</div>
+        </div>;
+      })}</>;
+  }
+
+  if (seg.kind === 'matrix') {
+    return <>{(seg.cells ?? []).slice(0, 4).map((c, i) => {
+      const k = rise(i, 6);
+      return <div key={i} style={{...card, left: 130 + (i % 2) * 240, top: 330 + Math.floor(i / 2) * 160,
+        width: 220, height: 140, padding: '30px 12px', opacity: k,
+        transform: `translateY(${(1 - k) * 20}px)`}}>
+        <div style={{color: goldLight, fontSize: 24, marginBottom: 14}}>{c.label}</div>
+        <div style={{fontSize: 20, color: '#e2eaf0'}}>{c.note ?? ''}</div>
+      </div>;
+    })}</>;
+  }
+  return null;
+};
+
 export const Overlay: React.FC<OverlayProps> = (props) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
@@ -279,6 +377,7 @@ export const Overlay: React.FC<OverlayProps> = (props) => {
       {seg.kind === 'resection' ? <Resection {...common} /> : null}
       {seg.kind === 'quote' ? <Quote {...common} /> : null}
       {seg.kind === 'points' ? <Points {...common} /> : null}
+      {GENERIC_KINDS.includes(seg.kind) ? <GenericViz {...common} /> : null}
       {seg.quote && seg.kind !== 'quote' ? (
         <Rise frame={local} fps={fps} delay={10}
           style={{position: 'absolute', top: 690, width: '100%', textAlign: 'center',

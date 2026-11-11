@@ -92,6 +92,7 @@ python scripts/package_video.py --config <你的config.json>
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | `source` | string | 必填，真人出镜原片绝对路径 |
+| `profile` | string | 场景预设：`medical`（默认）/ `product` / `ecommerce` / `general`，见 1c |
 | `reference` | string | 可选，参考成片路径；仅用于风格分析与片尾头像裁切 |
 | `output` | string | 成片输出路径 |
 | `workdir` | string | 中间帧与临时视频目录，默认 `<output 同级>/.packager_work` |
@@ -175,6 +176,34 @@ python scripts/package_video.py --config c.json \
 
 `--person-subtitle` 是 `--person-department` 的兼容别名；`--person-show` 接受 2 个或偶数个秒数，自动两两配对成区间。非交互环境传 `--ask-person` 会打印告警并跳过，不会卡住流水线。
 
+## 1c. 场景预设与通用动画
+
+### 预设（profile）
+
+| profile | 适用 | 默认免责 | 审签重点 | 推荐动画 |
+|---|---|---|---|---|
+| `medical`（默认） | 医学科普、健康讲解 | 不作为诊疗依据、及时就诊 | 资质认证、无疗效承诺、无虚构病例 | `timeline` `scan` `resection` `quote` `points` |
+| `product` | 产品介绍、发布、测评 | 参数以官方为准、价格以实时页面为准 | 广告法绝对化用语、参数可核实、授权 | `features` `compare` `stats` `steps` `quote` |
+| `ecommerce` | 电商分析、类目与竞品数据 | 不构成经营建议、数据口径以原平台为准 | 数据来源与口径、竞品可比性、时效标注 | `stats` `funnel` `compare` `matrix` `quote` |
+| `general` | 泛知识、观点口播 | 无（可自定义） | 事实一致、引用授权、无夸大 | `stats` `features` `steps` `compare` |
+
+用法：配置写 `"profile": "product"`，或命令行 `--profile product`；`--list-profiles` 列出全部。**配置里显式写 `disclaimer` 会覆盖预设**；未写则用预设值，`general` 默认不带免责行。`review_checklist.json` 会记录 `profile` 并输出该场景的审签条目。
+
+示例配置：`assets/config.product.example.json`、`assets/config.ecommerce.example.json`。
+
+### 通用动画类型
+
+| kind | 用途 | 数据字段 |
+|---|---|---|
+| `features` | 卖点/要点卡网格（最多 6 张，2 列） | `points: string[]` |
+| `compare` | 2–3 柱横向对比 | `columns: [{label, value, note?}]` |
+| `stats` | 最多 6 柱柱状图 | `bars: [{label, value}]`、`unit?` |
+| `funnel` | 最多 5 层转化漏斗 | `stages: [{label, value}]` |
+| `steps` | 最多 5 步流程 | `points: string[]` |
+| `matrix` | 2×2 四象限 | `cells: [{label, note?}]`、`axes?` |
+
+通用段仍支持 `title` / `sub` / `quote`。Pillow 与 Remotion 两端均已实现；`quote`、`points` 及医学专用 `timeline` / `scan` / `resection` 保持原行为不变。
+
 ## 2. 动画后端
 
 | 后端 | 命令 | 动效特征 | 适用 |
@@ -213,7 +242,9 @@ npm install --registry=https://registry.npmmirror.com --no-audit --no-fund
 | PNG 帧序列只有 1 帧 | 单帧图片作为 overlay 输入 | 帧序列用 `-framerate <fps> -start_number 0 -i frames/%05d.png` |
 | `alphamerge` 尺寸不符 | 蒙版与画中画尺寸不一致 | 两侧都 `scale` 到 `pip` 的 w/h，蒙版先 `format=gray` |
 
-## 5. 医学/健康内容合规细则
+## 5. 合规细则
+
+以下医学条款**仅 `medical` 预设适用**，依据 2025 年 8 月中央网信办、国家卫健委等四部门《关于规范"自媒体"医疗科普行为的通知》。
 
 2025 年 8 月中央网信办、国家卫健委等四部门《关于规范"自媒体"医疗科普行为的通知》已落地的硬要求：
 
@@ -226,6 +257,14 @@ npm install --registry=https://registry.npmmirror.com --no-audit --no-fund
 2026 年 3 月政协委员提出分级审核、AI 内容标「AI 合成」、高临床指导意义内容强制复核——**属建议、非现行规定**，但按此设计流程无妨。
 
 引擎落地：底部免责（默认两行，不含 AI 标识，黑条高度随行数自适应）、片尾免责、`review_checklist.json` 状态 `DRAFT_PENDING_HUMAN_REVIEW`、`auto_publish: false`。**AI 生成合成标识按用户流程由后期/发布环节添加，工具不烧录**，清单里登记为待办项。发布前仍需：本人/科室审签、职称与资质核对、账号资质认证、平台 AI 标识与来源标注。
+
+### 其他场景的合规要点
+
+- `product`：遵守《广告法》，避免「最」「第一」等绝对化用语；参数、认证、检测报告与销量数据须可溯源；价格与促销标注有效期与适用条件；肖像、品牌标识、音乐与字体需授权。
+- `ecommerce`：标注数据来源、时间区间与统计口径；竞品信息来自公开可核实渠道，不作不当比较；预测值明确标注；价格与排名标注采集时间；不诱导交易或规避平台规则。
+- `general`：事实与字幕一致，引用可溯源，无未经验证的承诺。
+
+三者同样要求成片待人工审签、不自动发布；AI 生成合成标识由后期/发布环节处理。
 
 ## 6. 质检清单
 
