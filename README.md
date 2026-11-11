@@ -13,6 +13,7 @@
 | 知识动画 | 内置 Pillow（零依赖、easeOutCubic 缓动）／ Remotion（spring 弹性、SVG 渐变）／ 外部透明 PNG 帧序列 |
 | 片头片尾 | 金黄大标题、常驻免责条、黑底圆形头像片尾卡 |
 | 切片剪辑 | 长视频按时间码 / 自动去静音切成精华片段，字幕与动画时间轴自动重映射；支持批量导出多条切片 |
+| 规格自适应 | 非 720×1280 / 非 30fps 的手机竖屏素材自动等比缩放补边、统一帧率与音频格式，避免叠层与画中画坐标越界 |
 | 合规 | 医学/健康类内容输出审签清单，标记 `DRAFT_PENDING_HUMAN_REVIEW`，不自动发布 |
 
 ## 适用场景
@@ -137,15 +138,15 @@ SkillHub 上架流程见 `references/workflow.md` 第 0 节，网页发布入口
 
 ## 版本与发布
 
-当前版本 **1.1.0**。`SKILL.md` 的 `version` 与 `manifest.yaml` 的 `version` 必须一致，`make_dist.py` 会在打包时校验，不一致直接中止。
+当前版本 **1.1.1**（1.1.0 加切片剪辑，1.1.1 加规格自适应）。`SKILL.md` 的 `version` 与 `manifest.yaml` 的 `version` 必须一致，`make_dist.py` 会在打包时校验，不一致直接中止。
 
 ```bash
 python scripts/make_dist.py --src . --out dist   # 两个发布包 + 版本化 zip + SHA256SUMS
-git tag -a v1.1.0 -m "v1.1.0"
-git push origin main && git push origin v1.1.0  # push tag 自动建 Release 并挂 zip
+git tag -a v1.1.1 -m "v1.1.1"
+git push origin main && git push origin v1.1.1  # push tag 自动建 Release 并挂 zip
 ```
 
-自动发版由 `.github/workflows/release.yml` 完成；首次使用需在仓库 Settings → Actions → General 开启 **Read and write permissions**。SkillHub 从 GitHub 导入时确认页填 `1.1.0`（若 `1.0.0` 已提交过必须递增），`v1.0.0` 的 Release 资产不会被覆盖。
+自动发版由 `.github/workflows/release.yml` 完成；首次使用需在仓库 Settings → Actions → General 开启 **Read and write permissions**。SkillHub 从 GitHub 导入时确认页填 `1.1.1`（历史版本已提交过必须递增），历史 Release 资产不会被覆盖。
 
 ## 许可证
 

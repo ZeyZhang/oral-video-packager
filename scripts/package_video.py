@@ -45,6 +45,31 @@ def probe(path):
             "fps": fps, "dur": float(data["format"]["duration"])}
 
 
+def normalize_source(cfg, work, info):
+    """非 720x1280 / 非 30fps 的源先统一到设计画布。
+
+    compose() 的 PiP crop 与叠层坐标按设计画布硬编码，手机竖屏素材
+    （如 540x960@19fps）直接使用会裁切越界。切片阶段已顺手归一化时
+    这里会直接返回，不会重复转码。
+    """
+    if info["w"] == DW and info["h"] == DH and abs(info["fps"] - 30.0) < 0.01:
+        return cfg, info
+    out = os.path.join(work, "normalized.mp4")
+    print("[setup] normalize %dx%d@%g -> %dx%d@30 (design canvas)" %
+          (info["w"], info["h"], info["fps"], DW, DH))
+    vf = ("scale=%d:%d:force_original_aspect_ratio=decrease,"
+          "pad=%d:%d:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=30" %
+          (DW, DH, DW, DH))
+    run(["ffmpeg", "-y", "-v", "error", "-i", cfg["source"], "-vf", vf,
+         "-c:v", "libx264", "-preset", "medium", "-crf", "18",
+         "-pix_fmt", "yuv420p", "-r", "30",
+         "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
+         "-movflags", "+faststart", out])
+    cfg = dict(cfg)
+    cfg["source"] = out
+    return cfg, probe(out)
+
+
 def find_font(bold=True):
     names = (["msyhbd.ttc", "simhei.ttf", "NotoSansCJK-Bold.ttc"]
              if bold else ["msyh.ttc", "simhei.ttf", "NotoSansCJK-Regular.ttc"])
@@ -1003,7 +1028,9 @@ def main():
     os.makedirs(outdir, exist_ok=True)
     info = probe(src)
     if abs(info["w"] / info["h"] - DW / DH) > 0.02:
-        print("WARNING: source is not 9:16; overlay is designed for 9:16 and may stretch.")
+        print("WARNING: source is not 9:16; letterbox padding will be applied.")
+    cfg, info = normalize_source(cfg, work, info)
+    src = cfg["source"]
     st = Style(cfg)
     cfg = resolve_person(cfg, args)
     if args.preview_card:

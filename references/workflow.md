@@ -23,7 +23,7 @@
 | 字段 | 本包取值 | 说明 |
 |---|---|---|
 | `slug` | `oral-video-packager` | kebab-case、全网唯一、**提交后不可修改**；提示 409 被占用时改成带账号前缀后重新打包 |
-| `version` | `1.1.0` | SemVer，同一 slug 下必须递增；每次内容变更都要升版本 |
+| `version` | `1.1.1` | SemVer，同一 slug 下必须递增；每次内容变更都要升版本 |
 | `displayName` | `口播视频包装工具` | 市场展示名 |
 | `name` / `description` | 保留 | WorkBuddy 识别用，description 含触发词 |
 | `summary` / `tags` / `category` / `platforms` / `license` / `visibility` | 见 SKILL.md | 建议项，不阻断发布 |
@@ -32,7 +32,7 @@
 
 | 网页发布 | CLI 发布 |
 |---|---|
-| 登录 skillhub.cn → 技能发布页 → 填写名称 / 描述 / 版本 `1.1.0` / 分类「视频创作」/ 标签 → 上传扁平包 → 提交审核 | `skillhub login` → `skillhub init --name --category` → `skillhub push` → `skillhub publish --dry-run` → `skillhub publish` |
+| 登录 skillhub.cn → 技能发布页 → 填写名称 / 描述 / 版本 `1.1.1` / 分类「视频创作」/ 标签 → 上传扁平包 → 提交审核 | `skillhub login` → `skillhub init --name --category` → `skillhub push` → `skillhub publish --dry-run` → `skillhub publish` |
 
 CLI 用 `--visibility public|unlisted|private|org` 控制可见范围。
 
@@ -42,7 +42,7 @@ CLI 用 `--visibility public|unlisted|private|org` 控制可见范围。
 
 1. 打开 `https://skillhub.cn/dashboard/publish` → 选「从 GitHub 导入」→ 刷新，扫描已绑定账号公开仓库中的 `SKILL.md`（单次最多导入 5 个）。
 2. 勾选 `oral-video-packager` → 下一步进入确认页。
-3. 逐项核对 Slug（实时查重）、显示名称、版本号 `1.1.0`、描述（留空自动读 `SKILL.md` 的 description）、图标。
+3. 逐项核对 Slug（实时查重）、显示名称、版本号 `1.1.1`、描述（留空自动读 `SKILL.md` 的 description）、图标。
 4. 点发布 → 三线安全审核 → 上架。以后代码 `git push` 后回到导入页重新同步并递增 `version` 即可，无需重传 zip。
 
 平台限制：仓库 >20MiB、候选目录 >10MiB、文件数 >200 会被拦；`.png` 等二进制文件在导入时会被过滤，因此 `icon.png` 需在确认页单独上传或改用预设图标。后端重打包会剥掉目录前缀，保证 ZIP 根目录就是 `SKILL.md`。本仓库约 20 个源码文件、百 KB 量级，符合限制。
@@ -292,6 +292,7 @@ npm install --registry=https://registry.npmmirror.com --no-audit --no-fund
 ## 3. 时间轴与坐标
 
 - 设计画布恒为 720×1280，所有配置坐标按此填写；引擎在 overlay 时缩放到源视频尺寸。
+- **规格自适应**：源不是 720×1280 / 30fps 时自动 `scale=...:force_original_aspect_ratio=decrease,pad=...,fps=30` 统一画布与帧率，音频统一 48kHz 立体声。启用切片时由 `clip_video.render_segments()` 在 concat 后一次完成（不重复转码）；未启用切片时由 `package_video.normalize_source()` 在 probe 后生成 `<workdir>/normalized.mp4`。这样 `compose()` 里硬编码的 PiP crop 与叠层坐标不会越界。手机竖屏（540×960@19fps）实测可直接跑通。
 - 小真人窗口挖空由引擎完成：动画段背景帧在该区域 alpha=0，主视频经 `crop → scale → alphamerge → overlay` 变成动态画中画，位于动画浮层之下。
 - 叠层顺序：主视频 → 小真人 → 动画/静态浮层 → ASS 字幕。
 - 启用切片后，上述时间轴全部按 `edit_map.json` 重映射；`clipped.mp4` 成为新的主视频输入，设计画布与坐标不变。
@@ -369,17 +370,18 @@ npm install --registry=https://registry.npmmirror.com --no-audit --no-fund
 | 切片后字幕/动画错位或消失 | 查看终端的 dropped 计数与 `clipped_config.json`；被剪区的字幕会被丢弃，跨切点动画会被裁剪，必要时调整 `clip.ranges` 避开知识点 |
 | 切片声音有爆音 | 每段已有 20ms 淡入淡出；若源音频本身削波，调小 `clip.silence.noise` 或改用外部音频处理 |
 | `--clip-only` 报错 | 需要配置里有 `clip` 段或命令行给 `--clip-ranges`；`--no-clip` 与 `--clip-only` 不能同时使用 |
+| 手机素材画中画错位 / 黑屏 | 确认日志出现 `normalize ... -> 720x1280@30`；未归一化时 PiP `crop=400:580:160:250` 会越界 |
 | `show` 报 `list <= float` | 重映射后的 `show` 是多区间列表；引擎用 `in_ranges()` 处理，勿改回单区间假设 |
 
 ## 9. 版本与发布
 
-当前版本 **`1.1.0`**（新增切片剪辑与 `clip` 预设）。任何内容改动都要同步递增版本，否则 SkillHub 会判重复提交。
+当前版本 **`1.1.1`**（1.1.0 新增切片剪辑与 `clip` 预设；1.1.1 增加非标准规格素材自动归一化）。任何内容改动都要同步递增版本，否则 SkillHub 会判重复提交。
 
 | 位置 | 作用 |
 |---|---|
 | `SKILL.md` frontmatter `version` | SkillHub / WorkBuddy 读取的主版本 |
 | `manifest.yaml` `version` | SkillHub 从 GitHub 导入时读取，必须与上一行一致 |
-| `git tag v1.1.0` | GitHub Release 与自动发版的触发器 |
+| `git tag v1.1.1` | GitHub Release 与自动发版的触发器 |
 
 发布流程：
 
@@ -388,14 +390,14 @@ npm install --registry=https://registry.npmmirror.com --no-audit --no-fund
 python scripts/make_dist.py --src . --out dist
 #    dist/oral-video-packager.zip            带外层目录，WorkBuddy「添加技能 → 上传技能」
 #    dist/oral-video-packager-skillhub.zip  扁平根目录 SKILL.md，SkillHub 网页上传
-#    dist/oral-video-packager-v1.1.0.zip    Release 附件（WorkBuddy 格式）
+#    dist/oral-video-packager-v1.1.1.zip    Release 附件（WorkBuddy 格式）
 
 # 2. 提交并打 tag；push tag 会自动建 GitHub Release 并挂上 zip
 git add -A && git commit -m "feat: ..."
-git tag -a v1.1.0 -m "v1.1.0"
-git push origin main && git push origin v1.1.0
+git tag -a v1.1.1 -m "v1.1.1"
+git push origin main && git push origin v1.1.1
 ```
 
 `.github/workflows/release.yml` 在 push `v*` tag 时运行 `make_dist.py`，用仓库自带的 `GITHUB_TOKEN` 创建 Release 并附上 zip。首次使用需在仓库 Settings → Actions → General → Workflow permissions 勾选 **Read and write permissions**，否则建 Release 会因权限不足失败（不影响 tag 本身）。
 
-SkillHub 侧：从 GitHub 导入时确认页版本号填 `1.1.0`（若 `1.0.0` 已提交过，必须递增）；网页上传则用扁平包。已发布的 `v1.0.0` Release 资产不覆盖。
+SkillHub 侧：从 GitHub 导入时确认页版本号填 `1.1.1`（历史版本已提交过则必须递增）；网页上传则用扁平包。历史 Release 资产不覆盖。

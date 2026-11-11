@@ -34,6 +34,15 @@ import re
 import subprocess
 import sys
 
+# 叠层按 720x1280 / 30fps 设计画布绘制；切片阶段顺手把非标准源统一过来，
+# 避免后续 compose() 里 PiP crop / overlay 坐标越界，且只需一次重编码。
+DESIGN_W, DESIGN_H, DESIGN_FPS = 720, 1280, 30
+
+
+def needs_normalize(info):
+    return (info["w"] != DESIGN_W or info["h"] != DESIGN_H or
+            abs(info["fps"] - DESIGN_FPS) > 0.01)
+
 
 def run(cmd, capture=False):
     if capture:
@@ -218,15 +227,25 @@ def render_segments(src, ranges, out, info):
             afade.append("[v%do][a%do]" % (i, i))
     parts = "".join(afade) if info["has_audio"] else \
         "".join("[v%do]" % i for i in range(n))
-    fc.append("%sconcat=n=%d:v=1:a=%d[vout]%s" %
+    fc.append("%sconcat=n=%d:v=1:a=%d[vcat]%s" %
               (parts, n, 1 if info["has_audio"] else 0,
                "[aout]" if info["has_audio"] else ""))
+    normal = needs_normalize(info)
+    if normal:
+        fc.append("[vcat]scale=%d:%d:force_original_aspect_ratio=decrease,"
+                  "pad=%d:%d:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,"
+                  "fps=%d[vout]" % (DESIGN_W, DESIGN_H, DESIGN_W, DESIGN_H,
+                                    DESIGN_FPS))
+        out_fps = DESIGN_FPS
+    else:
+        fc.append("[vcat]null[vout]")
+        out_fps = fps
     cmd = ["ffmpeg", "-y", "-v", "error", "-i", src,
            "-filter_complex", ";".join(fc), "-map", "[vout]"]
     if info["has_audio"]:
         cmd += ["-map", "[aout]"]
     cmd += ["-c:v", "libx264", "-preset", "medium", "-crf", "18",
-            "-pix_fmt", "yuv420p", "-r", str(fps)]
+            "-pix_fmt", "yuv420p", "-r", str(out_fps)]
     if info["has_audio"]:
         cmd += ["-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2"]
     cmd += ["-movflags", "+faststart", out]
@@ -317,6 +336,10 @@ def prepare(cfg, work):
     cfg = dict(cfg)
     cfg["clip"] = c
     info = probe(cfg["source"])
+    if needs_normalize(info):
+        print("      normalize: %dx%d@%g -> %dx%d@%d" %
+              (info["w"], info["h"], info["fps"],
+               DESIGN_W, DESIGN_H, DESIGN_FPS))
     ranges = build_ranges(cfg, info)
     render_segments(cfg["source"], ranges, c["output"], info)
     m = EditMap(ranges, info["fps"])
