@@ -23,7 +23,7 @@
 | 字段 | 本包取值 | 说明 |
 |---|---|---|
 | `slug` | `oral-video-packager` | kebab-case、全网唯一、**提交后不可修改**；提示 409 被占用时改成带账号前缀后重新打包 |
-| `version` | `1.3.0` | SemVer，同一 slug 下必须递增；每次内容变更都要升版本 |
+| `version` | `1.3.1` | SemVer，同一 slug 下必须递增；每次内容变更都要升版本 |
 | `displayName` | `口播视频包装工具` | 市场展示名 |
 | `name` / `description` | 保留 | WorkBuddy 识别用，description 含触发词 |
 | `summary` / `tags` / `category` / `platforms` / `license` / `visibility` | 见 SKILL.md | 建议项，不阻断发布 |
@@ -32,7 +32,7 @@
 
 | 网页发布 | CLI 发布 |
 |---|---|
-| 登录 skillhub.cn → 技能发布页 → 填写名称 / 描述 / 版本 `1.3.0` / 分类「视频创作」/ 标签 → 上传扁平包 → 提交审核 | `skillhub login` → `skillhub init --name --category` → `skillhub push` → `skillhub publish --dry-run` → `skillhub publish` |
+| 登录 skillhub.cn → 技能发布页 → 填写名称 / 描述 / 版本 `1.3.1` / 分类「视频创作」/ 标签 → 上传扁平包 → 提交审核 | `skillhub login` → `skillhub init --name --category` → `skillhub push` → `skillhub publish --dry-run` → `skillhub publish` |
 
 CLI 用 `--visibility public|unlisted|private|org` 控制可见范围。
 
@@ -42,7 +42,7 @@ CLI 用 `--visibility public|unlisted|private|org` 控制可见范围。
 
 1. 打开 `https://skillhub.cn/dashboard/publish` → 选「从 GitHub 导入」→ 刷新，扫描已绑定账号公开仓库中的 `SKILL.md`（单次最多导入 5 个）。
 2. 勾选 `oral-video-packager` → 下一步进入确认页。
-3. 逐项核对 Slug（实时查重）、显示名称、版本号 `1.3.0`、描述（留空自动读 `SKILL.md` 的 description）、图标。
+3. 逐项核对 Slug（实时查重）、显示名称、版本号 `1.3.1`、描述（留空自动读 `SKILL.md` 的 description）、图标。
 4. 点发布 → 三线安全审核 → 上架。以后代码 `git push` 后回到导入页重新同步并递增 `version` 即可，无需重传 zip。
 
 平台限制：仓库 >20MiB、候选目录 >10MiB、文件数 >200 会被拦；`.png` 等二进制文件在导入时会被过滤，因此 `icon.png` 需在确认页单独上传或改用预设图标。后端重打包会剥掉目录前缀，保证 ZIP 根目录就是 `SKILL.md`。本仓库约 20 个源码文件、百 KB 量级，符合限制。
@@ -281,12 +281,12 @@ python scripts/clip_video.py --config c.json --mode silence --output short.mp4
 
 | 元素 | 实现 |
 |---|---|
-| 6 套主题色 | `amber` 开场暖橙 / `slate` 日常青灰 / `blue` 知识点蓝 / `gold` 划重点金 / `rose` 心情柔粉 / `sage` 收尾青绿；`PROFILE_THEME` 按 profile 给起始色，`shots.theme` 可固定一套 |
+| 全片固定色调 | 6 套色板 `amber` 暖橙 / `slate` 青灰 / `blue` 蓝 / `gold` 金 / `rose` 柔粉 / `sage` 青绿；**一条片只选一套，全片不跳色**。`auto` 按 profile 选（`clip`→amber、`medical`→blue、`product`→gold、`ecommerce`→slate），写具体色板名可手动指定；风格差异体现在不同视频之间 |
 | 整帧色调分级 | 对 RGB 三通道施加不同增益（LUT 缓存，快），画面明显偏色但细节与构图不变；`shots.grade: false` 可关 |
 | 轻特效 | Ken Burns 缓慢推近（clean 1.03 / push 1.10）、暗角、底部渐变、顶部标签淡入滑入、进度线随全局时间推进、镜头间 smoothstep 交叉淡化、ASS 字幕 `\fad(180,180)` |
 | 4 种克制版式 | `clean` 全屏（默认）/ `push` 轻推近 / `caption` 唯一一条金句色带 / `blurpip` 精简画中画 |
 
-自动规则（关键：**颜色不频繁跳、版式变化要少**）：知识段统一蓝色且标题并入顶部标签；含数字/比较词不再改成分屏；短情绪句最多触发 1 次金句色带；动作占比高的段保留完整画面；普通段沿用上一段主题色；`push` ≤2 次、`caption` ≤1 次。**`clip` / `general` 场景完全不虚化真人**（`blurpip` 禁用），只有 `medical` / `product` / `ecommerce` 允许最多 2 段精简画中画。
+自动规则（关键：**全片一套色、版式变化要少**）：知识段标题并入顶部标签（胶囊默认显示片名）；含数字/比较词不再改成分屏；短情绪句最多触发 1 次金句色带；动作占比高的段保留完整画面；`push` ≤2 次、`caption` ≤1 次。顶部胶囊、进度线、色带、片头标题全部使用同一套 accent，镜头间不换色。**`clip` / `general` 场景完全不虚化真人**（`blurpip` 禁用），只有 `medical` / `product` / `ecommerce` 允许最多 2 段精简画中画。
 
 ### 可选：expressive（八版式，1.2.0 行为）
 
@@ -298,7 +298,7 @@ python scripts/clip_video.py --config c.json --mode silence --output short.mp4
 |---|---|---|
 | `shots` | — | `{"mode":"auto","style":"restrained"}`；也可直接给 shot 数组或 `{"plan":[...]}` |
 | `shots.style` | `restrained` | `restrained` 统一网格+配色 / `expressive` 八版式 |
-| `shots.theme` | `auto` | 固定一套色板名；`auto` 按语义与 profile 分配 |
+| `shots.theme` | `auto` | `auto` 按 profile 选一套**全片固定**；写 `amber`/`blue`/... 手动指定；仅 `dynamic` 才逐段换色（兼容旧行为，不推荐） |
 | `shots.grade` | true | 整帧色调分级开关 |
 | `shots.transition` | `fade` | `fade` / `slide` / `cut` |
 | `shots.transition_duration` | 0.40 | 转场秒数（smoothstep 平滑） |
@@ -430,13 +430,13 @@ npm install --registry=https://registry.npmmirror.com --no-audit --no-fund
 
 ## 9. 版本与发布
 
-当前版本 **`1.3.0`**（1.1.0 切片剪辑、1.1.1 规格自适应、1.3.0 内容驱动分镜）。任何内容改动都要同步递增版本，否则 SkillHub 会判重复提交。
+当前版本 **`1.3.1`**（1.3.0 克制统一排版 + 主题配色；1.3.1 把色调改为全片固定一套，不再逐段跳色）。任何内容改动都要同步递增版本，否则 SkillHub 会判重复提交。
 
 | 位置 | 作用 |
 |---|---|
 | `SKILL.md` frontmatter `version` | SkillHub / WorkBuddy 读取的主版本 |
 | `manifest.yaml` `version` | SkillHub 从 GitHub 导入时读取，必须与上一行一致 |
-| `git tag v1.3.0` | GitHub Release 与自动发版的触发器 |
+| `git tag v1.3.1` | GitHub Release 与自动发版的触发器 |
 
 发布流程：
 
@@ -445,14 +445,14 @@ npm install --registry=https://registry.npmmirror.com --no-audit --no-fund
 python scripts/make_dist.py --src . --out dist
 #    dist/oral-video-packager.zip            带外层目录，WorkBuddy「添加技能 → 上传技能」
 #    dist/oral-video-packager-skillhub.zip  扁平根目录 SKILL.md，SkillHub 网页上传
-#    dist/oral-video-packager-v1.3.0.zip    Release 附件（WorkBuddy 格式）
+#    dist/oral-video-packager-v1.3.1.zip    Release 附件（WorkBuddy 格式）
 
 # 2. 提交并打 tag；push tag 会自动建 GitHub Release 并挂上 zip
 git add -A && git commit -m "feat: ..."
-git tag -a v1.3.0 -m "v1.3.0"
-git push origin main && git push origin v1.3.0
+git tag -a v1.3.1 -m "v1.3.1"
+git push origin main && git push origin v1.3.1
 ```
 
 `.github/workflows/release.yml` 在 push `v*` tag 时运行 `make_dist.py`，用仓库自带的 `GITHUB_TOKEN` 创建 Release 并附上 zip。首次使用需在仓库 Settings → Actions → General → Workflow permissions 勾选 **Read and write permissions**，否则建 Release 会因权限不足失败（不影响 tag 本身）。
 
-SkillHub 侧：从 GitHub 导入时确认页版本号填 `1.3.0`（历史版本已提交过则必须递增）；网页上传则用扁平包。历史 Release 资产不覆盖。
+SkillHub 侧：从 GitHub 导入时确认页版本号填 `1.3.1`（历史版本已提交过则必须递增）；网页上传则用扁平包。历史 Release 资产不覆盖。

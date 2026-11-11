@@ -14,7 +14,7 @@
 | 片头片尾 | 金黄大标题、常驻免责条、黑底圆形头像片尾卡 |
 | 切片剪辑 | 长视频按时间码 / 自动去静音切成精华片段，字幕与动画时间轴自动重映射；支持批量导出多条切片 |
 | 规格自适应 | 非 720×1280 / 非 30fps 的手机竖屏素材自动等比缩放补边、统一帧率与音频格式，避免叠层与画中画坐标越界 |
-| 内容驱动分镜 | 默认统一网格 + 6 套主题配色 + 整帧色调分级 / 缓慢推近 / 暗角 / 进度线 / 柔和转场；真人始终为主体，切片类不花哨。`style: expressive` 可切回八种分格版式 |
+| 内容驱动分镜 | 默认统一网格 + **全片一套固定色调**的整帧色彩分级，配缓慢推近 / 暗角 / 进度线 / 柔和转场；色调不在段落间跳变，配色差异留给不同视频或 profile。`style: expressive` 可切回八种分格版式 |
 | 合规 | 医学/健康类内容输出审签清单，标记 `DRAFT_PENDING_HUMAN_REVIEW`，不自动发布 |
 
 ## 适用场景
@@ -140,15 +140,15 @@ SkillHub 上架流程见 `references/workflow.md` 第 0 节，网页发布入口
 
 ## 版本与发布
 
-当前版本 **1.3.0**（1.1.0 加切片剪辑、1.1.1 加规格自适应、1.3.0 加内容驱动分镜）。`SKILL.md` 的 `version` 与 `manifest.yaml` 的 `version` 必须一致，`make_dist.py` 会在打包时校验，不一致直接中止。
+当前版本 **1.3.1**（1.2.0 加内容驱动分镜、1.3.0 收敛为克制排版、1.3.1 改为全片固定色调）。`SKILL.md` 的 `version` 与 `manifest.yaml` 的 `version` 必须一致，`make_dist.py` 会在打包时校验，不一致直接中止。
 
 ```bash
 python scripts/make_dist.py --src . --out dist   # 两个发布包 + 版本化 zip + SHA256SUMS
-git tag -a v1.3.0 -m "v1.3.0"
-git push origin main && git push origin v1.3.0  # push tag 自动建 Release 并挂 zip
+git tag -a v1.3.1 -m "v1.3.1"
+git push origin main && git push origin v1.3.1  # push tag 自动建 Release 并挂 zip
 ```
 
-自动发版由 `.github/workflows/release.yml` 完成；首次使用需在仓库 Settings → Actions → General 开启 **Read and write permissions**。SkillHub 从 GitHub 导入时确认页填 `1.3.0`（历史版本已提交过必须递增），历史 Release 资产不会被覆盖。
+自动发版由 `.github/workflows/release.yml` 完成；首次使用需在仓库 Settings → Actions → General 开启 **Read and write permissions**。SkillHub 从 GitHub 导入时确认页填 `1.3.1`（历史版本已提交过必须递增），历史 Release 资产不会被覆盖。
 
 ## 许可证
 

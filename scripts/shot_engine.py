@@ -253,9 +253,14 @@ def choose_layout(text, seg, prev, index, has_speech):
 
 
 def _restrained_palette(cfg, opts, seg, text, ratio, i, total, prev):
-    fixed = opts.get("theme")
-    if fixed in PALETTES:
-        return fixed
+    """色调是全片基调，默认整片一套；只有显式 theme: dynamic 才逐段换色。"""
+    theme = opts.get("theme", "auto")
+    if theme != "dynamic":
+        if theme in PALETTES:
+            return theme
+        # auto：按内容类型选一套，整片固定
+        return PROFILE_THEME.get(cfg.get("profile"), "amber")
+    # 兼容旧行为：逐段换色（默认不再使用）
     if seg and seg.get("kind") in KIND_LAYOUT:
         return "blue"
     t = clean(text)
@@ -322,16 +327,17 @@ def _finish_restrained(cfg, opts, raw, dur, transition):
             "layout": lay, "palette": pal,
             "transition": "cut" if i == 0 else transition,
             "headline": headline, "items": items,
-            "kicker": (clean(seg.get("title") or "")[:10] if seg
-                       else PALETTES[pal]["label"]),
+            "kicker": (clean(seg.get("title") or "")[:10] if seg else
+                       clean((cfg.get("title_card") or {}).get("text")
+                             or "")[:10] or PALETTES[pal]["label"]),
             "text": text[:120],
             "segment_kind": seg.get("kind") if seg else None,
             "progress": round(a / max(0.1, dur), 4),
             "span": round((b - a) / max(0.1, dur), 4),
             "subtitle": {"pos": list(pos), "size": size},
-            "reason": ("开场主题色 + 全屏干净画面" if i == 0 else
-                       "收尾主题色，画面收束" if i >= total - 1 else
-                       "知识段统一蓝色 + 精简画中画" if lay == "blurpip" else
+            "reason": ("全片统一色调，开场全屏" if i == 0 else
+                       "全片统一色调，画面收束" if i >= total - 1 else
+                       "知识段精简画中画" if lay == "blurpip" else
                        "动作段保留完整画面" if ratio < 0.35 else
                        "唯一一条金句色带" if lay == "caption" else
                        "轻推近强调" if lay == "push" else
@@ -341,6 +347,8 @@ def _finish_restrained(cfg, opts, raw, dur, transition):
     return {"version": 2, "style": "restrained",
             "duration": round(dur, 3), "fps": FPS,
             "transition": transition,
+            "theme_mode": ("dynamic" if opts.get("theme") == "dynamic"
+                           else "fixed"),
             "palettes": sorted({s["palette"] for s in shots}),
             "shots": shots}
 

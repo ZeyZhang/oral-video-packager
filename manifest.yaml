@@ -1,7 +1,7 @@
 name: oral-video-packager
 slug: oral-video-packager
 displayName: 口播视频包装工具
-version: 1.3.0
+version: 1.3.1
 summary: 把真人出镜的口播素材包装成带字幕、竖排人物名片与知识动画的竖屏成片，支持切片剪辑与多场景预设
 description: >-
   把真人出镜的竖屏口播素材包装成带逐句字幕、竖排人物名片、知识动画、

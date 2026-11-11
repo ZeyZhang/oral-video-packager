@@ -13,7 +13,7 @@ description: >-
   长视频切片剪辑、去静音、提取精彩片段，或要求按内容切换分镜/版式/分屏时使用。
 agent_created: true
 slug: oral-video-packager
-version: 1.3.0
+version: 1.3.1
 displayName: 口播视频包装工具
 summary: 把真人出镜的口播素材包装成带逐句字幕、竖排人物名片、知识动画与片尾的竖屏成片
 category: 视频创作
@@ -132,14 +132,14 @@ python scripts/clip_video.py --source long.mp4 --ranges "0,12 18,33" --output sh
 
 ### 4d. 内容驱动分镜（可选，默认克制）
 
-默认所有段落**共用一套统一网格**（真人始终全屏为主体、顶部主题胶囊、底部字幕安全区与进度线），风格差异交给**主题配色与轻特效**：整帧色调分级（暖橙 / 青灰 / 知识蓝 / 金 / 柔粉 / 青绿）、缓慢推近、暗角、标签淡入滑入、柔和交叉淡化、字幕逐句淡入。切片 / 生活向内容尤其不该把画面切成各种分屏宫格。
+默认所有段落**共用一套统一网格**（真人始终全屏为主体、顶部胶囊标签、底部字幕安全区与进度线），并用**全片一套固定色调**做整帧色彩分级；镜头之间只靠缓慢推近、暗角、标签淡入滑入、柔和交叉淡化、字幕逐句淡入这些轻特效区分。色调是全片基调，**不随台词或段落频繁切换**；配色差异留给不同视频 / 不同 `profile` 之间（`clip` 暖橙、`medical` 蓝、`product` 金、`ecommerce` 青灰），或由用户手动指定。切片 / 生活向内容尤其不该把画面切成各种分屏宫格。
 
 ```json
 "shots": {"mode": "auto", "style": "restrained", "theme": "auto",
           "transition": "fade", "transition_duration": 0.4}
 ```
 
-内容只决定**用哪套配色、哪一段轻推近、哪里放一条金句色带**：知识段统一蓝色且标题并入顶部标签，动作段保留完整画面，普通段沿用当前主题色（颜色不频繁跳），`push` 全片最多 2 次、`caption` 最多 1 次。`clip` / `general` 场景完全不虚化真人；`medical` / `product` / `ecommerce` 才允许最多 2 段精简画中画。
+内容只决定**哪一段轻推近、哪里放一条金句色带、顶部标签写什么**：知识段标题并入顶部标签，动作段保留完整画面，`push` 全片最多 2 次、`caption` 最多 1 次。`clip` / `general` 场景完全不虚化真人；`medical` / `product` / `ecommerce` 才允许最多 2 段精简画中画。`shots.theme: "auto"` 按 profile 选一套全片固定；写具体色板名可手动指定；只有显式 `"dynamic"` 才会逐段换色（默认不用）。
 
 ```bash
 python scripts/package_video.py --config c.json --auto-shots   # 自动规划并出片
