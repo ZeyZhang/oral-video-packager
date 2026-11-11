@@ -1,0 +1,112 @@
+{
+  "_note": "切片剪辑示例：配置里的时间码全部按【原片】时间轴填写，引擎会自动重映射到剪辑后的时间线。source/output/workdir/ending.avatar.video 换成你自己的路径；person 信息由用户提供。",
+  "profile": "clip",
+  "source": "E:/workspace/workbuddy-space/1.mp4",
+  "reference": "E:/workspace/workbuddy-space/2.mp4",
+  "output": "E:/workspace/workbuddy-space/deliverables/oral_video_tool/clip_demo/demo_clip.mp4",
+  "workdir": "E:/workspace/workbuddy-space/deliverables/oral_video_tool/clip_demo/.clip_work",
+  "background_time": 10,
+
+  "clip": {
+    "mode": "keep",
+    "ranges": [[0.0, 16.1], [18.0, 26.5], [29.4, 36.1], [39.2, 47.6], [50.0, 64.3]],
+    "pad": 0.08,
+    "min_gap": 0.0,
+    "batch": false,
+    "output": "E:/workspace/workbuddy-space/deliverables/oral_video_tool/clip_demo/.clip_work/clipped.mp4"
+  },
+
+  "title_card": {
+    "text": "大肠癌，其实没那么可怕",
+    "sub": "精华剪辑 · 三个原因",
+    "show": [0.3, 2.0]
+  },
+
+  "person": {
+    "name": "朱阿考",
+    "title": "浙江大学附属第二医院",
+    "department": "大肠外科",
+    "rank": "副主任医师",
+    "show": [[2.0, 12.0], [36.0, 41.0]]
+  },
+
+  "subtitles": [
+    {"start": 0.76, "end": 4.21, "lines": ["排名第二的大肠癌", "其实并没有那么可怕"]},
+    {"start": 4.36, "end": 7.40, "lines": ["我在肿瘤外科干了这么多年"]},
+    {"start": 7.40, "end": 10.20, "lines": ["可以很负责任地讲"]},
+    {"start": 10.20, "end": 14.51, "lines": ["大肠癌是所有消化道肿瘤里", "**最容易防治**的一种"]},
+    {"start": 14.61, "end": 16.10, "lines": ["为什么呢？三个原因"]},
+    {"start": 16.10, "end": 19.40, "lines": ["第一，它长得特别慢"]},
+    {"start": 19.40, "end": 23.40, "lines": ["从一颗息肉长成肠癌", "往往需要 **5～10 年**"]},
+    {"start": 23.40, "end": 26.43, "lines": ["给了我们充足的时间去拦截它"]},
+    {"start": 26.98, "end": 29.40, "lines": ["第二，它也容易检查得出"]},
+    {"start": 29.40, "end": 33.00, "lines": ["一次**肠镜**", "整个大肠黏膜一览无余"]},
+    {"start": 33.00, "end": 36.03, "lines": ["有没有问题，一眼就能发现"]},
+    {"start": 36.28, "end": 39.20, "lines": ["第三，息肉可以在镜下完整切掉"]},
+    {"start": 39.20, "end": 42.40, "lines": ["等于把肿瘤**掐死在摇篮里**"]},
+    {"start": 42.40, "end": 46.40, "lines": ["即使是早期肠癌", "也能通过微创手术根治"]},
+    {"start": 46.40, "end": 50.00, "lines": ["所以，肠癌真正可怕的", "不是它本身"]},
+    {"start": 50.00, "end": 56.43, "lines": ["**而是一次肠镜都没做过**"]},
+    {"start": 56.84, "end": 60.20, "lines": ["我是浙大二院大肠外科 朱阿考医生"]},
+    {"start": 60.20, "end": 64.21, "lines": ["下一篇聊聊：", "得了肠癌还能不能回到正常生活"]}
+  ],
+
+  "segments": [
+    {
+      "start": 18.0, "end": 25.0, "kind": "timeline",
+      "title": "原因 ①  长得特别慢",
+      "sub": "从一颗息肉长成肠癌，往往需要 5～10 年",
+      "labels": ["0 年", "5 年", "10 年"],
+      "quote": "给了我们充足的时间去拦截它"
+    },
+    {
+      "start": 29.5, "end": 35.5, "kind": "scan",
+      "title": "原因 ②  容易检查得出",
+      "sub": "一次肠镜，整个大肠黏膜一览无余",
+      "marker": "发现息肉",
+      "quote": "有没有问题，一眼就能发现"
+    },
+    {
+      "start": 41.0, "end": 47.5, "kind": "resection",
+      "title": "原因 ③  镜下就能处理",
+      "sub": "把肿瘤掐死在摇篮里",
+      "points": ["息肉可在镜下完整切除", "早期肠癌也能微创根治", "等于把肿瘤掐死在摇篮里"]
+    },
+    {
+      "start": 50.0, "end": 56.4, "kind": "quote",
+      "title": "记住一句话",
+      "lines": [
+        {"text": "肠癌真正可怕的", "color": "white", "at": 0.05},
+        {"text": "不是它本身", "color": "white", "at": 0.22},
+        {"text": "而是一次肠镜都没做过", "color": "gold", "at": 0.38}
+      ],
+      "footer": "早查早放心"
+    }
+  ],
+
+  "ending": {
+    "duration": 2.0,
+    "avatar": {
+      "video": "E:/workspace/workbuddy-space/2.mp4",
+      "time": 43.5,
+      "from_reference": [208, 486, 512, 790]
+    },
+    "text": "点赞  关注  收藏",
+    "footer": "内容节选自完整科普 · 语境以原片为准"
+  },
+
+  "style": {
+    "gold": [226, 178, 38],
+    "gold_light": [245, 210, 96],
+    "subtitle_size": 40,
+    "subtitle_margin_v": 176,
+    "shift_subtitles_in_segments": true,
+    "shifted_pos": [500, 1080],
+    "shifted_size": 32,
+    "pip": [20, 770, 300, 435],
+    "background_blur": 22,
+    "background_darkness": 0.52
+  },
+
+  "audio": {"fade_out": [65.2, 1.0]}
+}

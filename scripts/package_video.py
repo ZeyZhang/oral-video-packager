@@ -234,6 +234,22 @@ PROFILES = {
         ],
         "kinds": ["stats", "funnel", "compare", "matrix", "quote", "points"],
     },
+    "clip": {
+        "label": "切片剪辑",
+        "disclaimer": [
+            "本片段节选自完整内容，观点与语境以原片为准",
+            "剪辑仅作浓缩呈现，未改变原意；完整信息请看原片",
+        ],
+        "checks": [
+            "逐句核对切片边界，未把半句话、条件或否定词截断导致原意改变",
+            "节选内容与上下文一致，无断章取义、无跨段拼接造成的误导",
+            "片头或说明中标注原片来源、发布时间与「节选 / 剪辑」字样",
+            "人物出镜、原片版权与音乐素材已获切片再发布授权",
+            "字幕、人物条与示意动画已按剪辑后时间轴重新对齐，无错位或残留",
+            "AI 生成合成内容标识由后期/发布环节添加",
+        ],
+        "kinds": ["quote", "points", "features", "compare", "steps", "timeline"],
+    },
     "general": {
         "label": "通用口播",
         "disclaimer": [],
@@ -722,9 +738,9 @@ def build_frames(cfg, st, work, info, reuse, ext_dir=None):
         active = next(((s, (t - s["start"]) / (s["end"] - s["start"]),
                         fade(t, s["start"], s["end"]))
                        for s in segs if s["start"] <= t < s["end"]), None)
-        in_title = title and title[0] <= t < title[1]
+        title_range = in_ranges(t, title)
         person_range = in_ranges(t, person)
-        if active is None and not in_title and person_range is None:
+        if active is None and title_range is None and person_range is None:
             shutil.copyfile(base_path, path)
             continue
         if active:
@@ -743,8 +759,9 @@ def build_frames(cfg, st, work, info, reuse, ext_dir=None):
             frame = Image.alpha_composite(frame, base)
         else:
             frame = base.copy()
-        if in_title:
-            draw_title(frame, cfg, st, fade(t, title[0], title[1], 0.4))
+        if title_range is not None:
+            draw_title(frame, cfg, st,
+                       fade(t, title_range[0], title_range[1], 0.4))
         if person_range is not None:
             draw_person(frame, cfg, st,
                         fade(t, person_range[0], person_range[1], 0.3))
@@ -827,6 +844,10 @@ def write_checklist(cfg, work, outdir, final):
         "ai_disclosure_note": "不在画面烧录；由后期/发布环节按平台要求添加",
         "checks": list(pdef.get("checks", [])),
     }
+    if cfg.get("_clip"):
+        data["clip_edit"] = cfg["_clip"]
+        data["checks"].append(
+            "核对 edit_map.json 的切点：未截断语义，字幕/动画/人物条已重新对齐")
     for d in (work, outdir):
         if d:
             with open(os.path.join(d, "review_checklist.json"), "w", encoding="utf-8") as f:
@@ -911,8 +932,19 @@ def main():
         return
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
-    ap.add_argument("--profile", help="场景预设：medical / product / ecommerce / general")
+    ap.add_argument("--profile",
+                    help="场景预设：medical / product / ecommerce / clip / general")
     ap.add_argument("--list-profiles", action="store_true", help="列出全部场景预设")
+    ap.add_argument("--clip-ranges",
+                    help="切片保留区间，如 '0,12 18,33 41,64'（启用切片阶段）")
+    ap.add_argument("--clip-mode", choices=["keep", "cut", "silence"],
+                    help="keep 保留 / cut 剔除 / silence 自动去静音")
+    ap.add_argument("--clip-batch", action="store_true",
+                    help="每段切片额外单独导出 clip_XX.mp4 + 独立配置")
+    ap.add_argument("--clip-only", action="store_true",
+                    help="只做切片与重映射，不跑包装合成")
+    ap.add_argument("--no-clip", action="store_true",
+                    help="忽略配置里的 clip 段，直接用原片包装")
     ap.add_argument("--workdir")
     ap.add_argument("--output")
     ap.add_argument("--reuse-frames", action="store_true")
@@ -931,15 +963,44 @@ def main():
     with open(args.config, "r", encoding="utf-8") as f:
         cfg = json.load(f)
     cfg = apply_profile(cfg, args)
+    print("[setup] profile: %s (%s)" %
+          (cfg["_profile"], cfg["_profile_def"]["label"]))
     src = os.path.abspath(cfg["source"])
     cfg["source"] = src
-    final = os.path.abspath(args.output or cfg.get("output") or
-                            os.path.join(os.path.dirname(src), "packaged.mp4"))
+    hint = os.path.abspath(cfg.get("output") or
+                           os.path.join(os.path.dirname(src), "packaged.mp4"))
+    os.makedirs(os.path.dirname(hint), exist_ok=True)
+    work = os.path.abspath(args.workdir or cfg.get("workdir") or
+                           os.path.join(os.path.dirname(hint), ".packager_work"))
+    os.makedirs(work, exist_ok=True)
+
+    wants_clip = bool(cfg.get("clip") or args.clip_ranges or args.clip_mode)
+    if wants_clip and not args.no_clip:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import clip_video
+        c = cfg.setdefault("clip", {})
+        if args.clip_ranges:
+            c["ranges"] = clip_video.parse_ranges(args.clip_ranges)
+        if args.clip_mode:
+            c["mode"] = args.clip_mode
+        if args.clip_batch:
+            c["batch"] = True
+        print("[0/6] clip editing")
+        cfg, _ = clip_video.prepare(cfg, work)
+        src = cfg["source"]
+        if args.clip_only:
+            print("\nCLIP ONLY -> %s" % src)
+            print("      %s" % os.path.join(work, "edit_map.json"))
+            print("      %s" % os.path.join(work, "clipped_config.json"))
+            print("      next: --config clipped_config.json (已重映射，可直接包装；"
+                  "改切点请改原配置的 clip.ranges 后重跑)")
+            return
+    elif args.clip_only:
+        raise SystemExit("--clip-only needs a 'clip' section or --clip-ranges")
+
+    final = os.path.abspath(args.output or cfg.get("output") or hint)
     outdir = os.path.dirname(final)
     os.makedirs(outdir, exist_ok=True)
-    work = os.path.abspath(args.workdir or
-                           cfg.get("workdir") or os.path.join(outdir, ".packager_work"))
-    os.makedirs(work, exist_ok=True)
     info = probe(src)
     if abs(info["w"] / info["h"] - DW / DH) > 0.02:
         print("WARNING: source is not 9:16; overlay is designed for 9:16 and may stretch.")
@@ -948,7 +1009,6 @@ def main():
     if args.preview_card:
         preview_card(cfg, st, work, info, args.preview_card)
         return
-    print("[0/6] profile: %s (%s)" % (cfg["_profile"], cfg["_profile_def"]["label"]))
     print("[1/6] subtitles")
     build_subtitles(cfg, st, work, outdir)
     print("[2/6] assets")

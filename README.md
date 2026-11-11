@@ -12,6 +12,7 @@
 | 人物名片 | 参考成片式竖排样式：蓝渐变姓名块＋双列机构/科室＋菱形职称，字段全部由用户输入 |
 | 知识动画 | 内置 Pillow（零依赖、easeOutCubic 缓动）／ Remotion（spring 弹性、SVG 渐变）／ 外部透明 PNG 帧序列 |
 | 片头片尾 | 金黄大标题、常驻免责条、黑底圆形头像片尾卡 |
+| 切片剪辑 | 长视频按时间码 / 自动去静音切成精华片段，字幕与动画时间轴自动重映射；支持批量导出多条切片 |
 | 合规 | 医学/健康类内容输出审签清单，标记 `DRAFT_PENDING_HUMAN_REVIEW`，不自动发布 |
 
 ## 适用场景
@@ -23,9 +24,12 @@
 | `medical`（默认） | 医学科普、健康讲解 | `assets/config.example.json` |
 | `product` | 产品介绍、发布、测评 | `assets/config.product.example.json` |
 | `ecommerce` | 电商数据、类目与竞品分析 | `assets/config.ecommerce.example.json` |
+| `clip` | 长视频切片、精华剪辑、去静音 | `assets/config.clip.example.json` |
 | `general` | 泛知识、观点口播 | — |
 
 `--list-profiles` 查看全部；配置里显式写 `disclaimer` 可覆盖预设。除原有医学动画外，新增 `features` / `compare` / `stats` / `funnel` / `steps` / `matrix` 六种通用动画，Pillow 与 Remotion 两端都支持。
+
+切片剪辑由 `scripts/clip_video.py` 提供，是包装前的可选预处理阶段，详见 `references/workflow.md` 第 1d 节。
 
 ## 安装
 
@@ -85,9 +89,13 @@ cp assets/config.example.json myconfig.json
 # person 的姓名、机构、科室、职称由你提供
 python scripts/package_video.py --config myconfig.json --preview-card card.png
 python scripts/package_video.py --config myconfig.json
+
+# 切片剪辑：配置里写 clip 段，或用命令行直接给保留区间
+python scripts/package_video.py --config myconfig.json --clip-only
+python scripts/package_video.py --config myconfig.json --clip-ranges "0,12 18,33 41,64"
 ```
 
-输出：成片、`subtitles.srt` / `subtitles.ass`、`contact_sheet.png`、`review_checklist.json`。
+输出：成片、`subtitles.srt` / `subtitles.ass`、`contact_sheet.png`、`review_checklist.json`；切片时另有 `clipped.mp4`、`edit_map.json`、`clipped_config.json`。
 
 人物信息可由命令行传入，无需改配置文件：
 
@@ -110,19 +118,34 @@ python scripts/package_video.py --config myconfig.json --animation-frames anim_f
 ```
 SKILL.md                      技能入口与工作流
 scripts/package_video.py      配置驱动主引擎
+scripts/clip_video.py         切片剪辑与时间轴重映射
+scripts/make_dist.py          生成两个发布 zip 并校验版本一致性
 scripts/render_remotion.py    Remotion 动画层渲染
 scripts/analyze_reference.py  参考成片拆解
-assets/config.example.json    完整配置示例
-references/workflow.md        配置字段、依赖、SkillHub 上架与故障排查
+assets/config*.example.json   医疗 / 产品 / 电商 / 切片四套配置示例
+references/workflow.md        配置字段、切片剪辑、依赖、上架与故障排查
+.github/workflows/release.yml push v* tag 自动建 Release
 remotion/                     React + spring 动画模板
 manifest.yaml / icon.png      SkillHub GitHub 导入元数据与图标
 ```
 
 ## 合规
 
-医学/健康类内容默认带底部免责声明与片尾免责，成片状态为待人工审签，工具不自动发布。AI 生成合成标识由后期/发布环节按平台要求处理。
+医学/健康类内容默认带底部免责声明与片尾免责，成片状态为待人工审签，工具不自动发布。AI 生成合成标识由后期/发布环节按平台要求处理。`clip` 预设额外要求人工核对切点未截断语义、标注原片来源与「节选/剪辑」字样，并确认再发布授权。
 
 SkillHub 上架流程见 `references/workflow.md` 第 0 节，网页发布入口为 `https://skillhub.cn/dashboard/publish`。
+
+## 版本与发布
+
+当前版本 **1.1.0**。`SKILL.md` 的 `version` 与 `manifest.yaml` 的 `version` 必须一致，`make_dist.py` 会在打包时校验，不一致直接中止。
+
+```bash
+python scripts/make_dist.py --src . --out dist   # 两个发布包 + 版本化 zip + SHA256SUMS
+git tag -a v1.1.0 -m "v1.1.0"
+git push origin main && git push origin v1.1.0  # push tag 自动建 Release 并挂 zip
+```
+
+自动发版由 `.github/workflows/release.yml` 完成；首次使用需在仓库 Settings → Actions → General 开启 **Read and write permissions**。SkillHub 从 GitHub 导入时确认页填 `1.1.0`（若 `1.0.0` 已提交过必须递增），`v1.0.0` 的 Release 资产不会被覆盖。
 
 ## 许可证
 

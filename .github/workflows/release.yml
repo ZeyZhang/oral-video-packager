@@ -1,0 +1,39 @@
+name: Build and publish release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Smoke test
+        run: |
+          python -m pip install --quiet Pillow
+          python -m py_compile scripts/*.py
+          python scripts/package_video.py --list-profiles
+
+      - name: Build distribution zips
+        run: python scripts/make_dist.py --src . --out dist
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            dist/oral-video-packager-v*.zip \
+            dist/oral-video-packager-skillhub.zip \
+            --title "$GITHUB_REF_NAME" \
+            --notes "版本 $GITHUB_REF_NAME。WorkBuddy 导入用带外层目录的 zip；SkillHub 网页上传用扁平包。校验值见源码 release 附带说明或本地 make_dist.py 输出。" \
+            --verify-tag

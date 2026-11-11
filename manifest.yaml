@@ -1,12 +1,13 @@
 name: oral-video-packager
 slug: oral-video-packager
 displayName: 口播视频包装工具
-version: 1.0.0
-summary: 把真人出镜的口播素材包装成带字幕、竖排人物名片与知识动画的竖屏成片
+version: 1.1.0
+summary: 把真人出镜的口播素材包装成带字幕、竖排人物名片与知识动画的竖屏成片，支持切片剪辑与多场景预设
 description: >-
   把真人出镜的竖屏口播素材包装成带逐句字幕、竖排人物名片、知识动画、
   免责声明与片尾卡的成片。可复用参考成片的视觉规格，支持 Pillow、
-  Remotion 与外部逐帧三种动画后端，并内置医学科普合规与人工审签清单。
+  Remotion 与外部逐帧三种动画后端；可按时间码或自动去静音切片剪辑并
+  重映射字幕时间轴，内置医学科普/产品/电商/切片多场景合规与人工审签清单。
 category: 视频创作
 platforms:
   - WorkBuddy
@@ -15,6 +16,7 @@ tags:
   - 字幕
   - 知识动画
   - 视频包装
+  - 切片剪辑
 license: MIT
 visibility: public
 entry: SKILL.md

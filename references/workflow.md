@@ -23,7 +23,7 @@
 | 字段 | 本包取值 | 说明 |
 |---|---|---|
 | `slug` | `oral-video-packager` | kebab-case、全网唯一、**提交后不可修改**；提示 409 被占用时改成带账号前缀后重新打包 |
-| `version` | `1.0.0` | SemVer，同一 slug 下必须递增 |
+| `version` | `1.1.0` | SemVer，同一 slug 下必须递增；每次内容变更都要升版本 |
 | `displayName` | `口播视频包装工具` | 市场展示名 |
 | `name` / `description` | 保留 | WorkBuddy 识别用，description 含触发词 |
 | `summary` / `tags` / `category` / `platforms` / `license` / `visibility` | 见 SKILL.md | 建议项，不阻断发布 |
@@ -32,7 +32,7 @@
 
 | 网页发布 | CLI 发布 |
 |---|---|
-| 登录 skillhub.cn → 技能发布页 → 填写名称 / 描述 / 版本 `1.0.0` / 分类「视频创作」/ 标签 → 上传扁平包 → 提交审核 | `skillhub login` → `skillhub init --name --category` → `skillhub push` → `skillhub publish --dry-run` → `skillhub publish` |
+| 登录 skillhub.cn → 技能发布页 → 填写名称 / 描述 / 版本 `1.1.0` / 分类「视频创作」/ 标签 → 上传扁平包 → 提交审核 | `skillhub login` → `skillhub init --name --category` → `skillhub push` → `skillhub publish --dry-run` → `skillhub publish` |
 
 CLI 用 `--visibility public|unlisted|private|org` 控制可见范围。
 
@@ -42,10 +42,10 @@ CLI 用 `--visibility public|unlisted|private|org` 控制可见范围。
 
 1. 打开 `https://skillhub.cn/dashboard/publish` → 选「从 GitHub 导入」→ 刷新，扫描已绑定账号公开仓库中的 `SKILL.md`（单次最多导入 5 个）。
 2. 勾选 `oral-video-packager` → 下一步进入确认页。
-3. 逐项核对 Slug（实时查重）、显示名称、版本号 `1.0.0`、描述（留空自动读 `SKILL.md` 的 description）、图标。
+3. 逐项核对 Slug（实时查重）、显示名称、版本号 `1.1.0`、描述（留空自动读 `SKILL.md` 的 description）、图标。
 4. 点发布 → 三线安全审核 → 上架。以后代码 `git push` 后回到导入页重新同步并递增 `version` 即可，无需重传 zip。
 
-平台限制：仓库 >20MiB、候选目录 >10MiB、文件数 >200 会被拦；`.png` 等二进制文件在导入时会被过滤，因此 `icon.png` 需在确认页单独上传或改用预设图标。后端重打包会剥掉目录前缀，保证 ZIP 根目录就是 `SKILL.md`。本仓库 16 个文件、约百 KB，符合限制。
+平台限制：仓库 >20MiB、候选目录 >10MiB、文件数 >200 会被拦；`.png` 等二进制文件在导入时会被过滤，因此 `icon.png` 需在确认页单独上传或改用预设图标。后端重打包会剥掉目录前缀，保证 ZIP 根目录就是 `SKILL.md`。本仓库约 20 个源码文件、百 KB 量级，符合限制。
 
 审核：内容合规过滤、科恩实验室漏洞扫描、云鼎实验室 AI 模型安全评估三线并行，全部通过才自动上架；另有 TRACE 评测（Trust 为红线维度）。版本采用语义化版本，**同一 Skill 标识下必须递增，且标识提交后不可修改**；更新在「我的技能」里点「更新」上传新包，同样需要重新审核。技能内容每次改动后需重新生成扁平包、递增版本号再走更新流程。
 
@@ -69,7 +69,7 @@ npm install --registry=https://registry.npmmirror.com --no-audit --no-fund
 
 ### 必改项
 
-`assets/config.example.json` 是本机回归示例，**含 4 个绝对路径，新用户必须替换**：`source`、`reference`（可删）、`output`、`workdir`；若 `ending.avatar` 用参考片裁头像，`ending.avatar.video` 也要改。`person` 的姓名 / 机构 / 科室 / 职称必须由用户提供，不得沿用示例值（见 1b 节）。
+`assets/*.example.json` 都是本机回归示例，**含 4 个绝对路径，新用户必须替换**：`source`、`reference`（可删）、`output`、`workdir`；若 `ending.avatar` 用参考片裁头像，`ending.avatar.video` 也要改；切片示例还需改 `clip.output`。`person` 的姓名 / 机构 / 科室 / 职称必须由用户提供，不得沿用示例值（见 1b 节）。
 
 ### 第一次跑通
 
@@ -77,6 +77,10 @@ npm install --registry=https://registry.npmmirror.com --no-audit --no-fund
 python scripts/analyze_reference.py --video <参考片.mp4> --outdir ref_analysis   # 可选
 python scripts/package_video.py --config <你的config.json> --preview-card card.png
 python scripts/package_video.py --config <你的config.json>
+
+# 可选：切片剪辑（配置里写 clip 段，或直接用命令行区间）
+python scripts/package_video.py --config <你的config.json> --clip-only
+python scripts/package_video.py --config <你的config.json> --clip-ranges "0,12 18,33 41,64"
 ```
 
 第三条输出成片、`subtitles.srt` / `subtitles.ass`、`contact_sheet.png`、`review_checklist.json`。终端出现 `STATUS: DRAFT_PENDING_HUMAN_REVIEW` 即成功。
@@ -92,12 +96,13 @@ python scripts/package_video.py --config <你的config.json>
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | `source` | string | 必填，真人出镜原片绝对路径 |
-| `profile` | string | 场景预设：`medical`（默认）/ `product` / `ecommerce` / `general`，见 1c |
+| `profile` | string | 场景预设：`medical`（默认）/ `product` / `ecommerce` / `clip` / `general`，见 1c |
 | `reference` | string | 可选，参考成片路径；仅用于风格分析与片尾头像裁切 |
 | `output` | string | 成片输出路径 |
 | `workdir` | string | 中间帧与临时视频目录，默认 `<output 同级>/.packager_work` |
 | `background_time` | number | 取原片哪一秒作为动画段的模糊背景，默认时长 × 0.35 |
 | `animation_frames` | string | 可选，外部透明 PNG 帧序列目录；填了即启用外部后端 |
+| `clip` | object | 可选，切片剪辑方案；填了即在包装前自动切片并重映射时间轴，见 1d |
 | `title_card` | object | `{text, sub, show:[起,止]}` 片头金黄大标题 |
 | `person` | object | 竖排人物名片，字段与输入方式见「1b. 人物名片」 |
 | `subtitles` | array | `[{start, end, lines:[...]}]`，行内 `**文字**` 为金黄高亮 |
@@ -112,7 +117,7 @@ python scripts/package_video.py --config <你的config.json>
 | 字段 | 说明 |
 |---|---|
 | `start` / `end` | 秒，精确到 0.1；与对应口播句对齐 |
-| `kind` | `timeline` / `scan` / `resection` / `quote` / `points` |
+| `kind` | 医学 `timeline` / `scan` / `resection`；通用 `features` / `compare` / `stats` / `funnel` / `steps` / `matrix`；共用 `quote` / `points` |
 | `title` / `sub` | 金黄主标题、白色副标题（Pillow 与 Remotion 通用） |
 | `quote` | 非 quote 段底部的金色强调句 |
 | `labels` | timeline 专用，三个时间节点标签 |
@@ -185,11 +190,14 @@ python scripts/package_video.py --config c.json \
 | `medical`（默认） | 医学科普、健康讲解 | 不作为诊疗依据、及时就诊 | 资质认证、无疗效承诺、无虚构病例 | `timeline` `scan` `resection` `quote` `points` |
 | `product` | 产品介绍、发布、测评 | 参数以官方为准、价格以实时页面为准 | 广告法绝对化用语、参数可核实、授权 | `features` `compare` `stats` `steps` `quote` |
 | `ecommerce` | 电商分析、类目与竞品数据 | 不构成经营建议、数据口径以原平台为准 | 数据来源与口径、竞品可比性、时效标注 | `stats` `funnel` `compare` `matrix` `quote` |
+| `clip` | 长视频切片、精华剪辑、去静音 | 节选自完整内容、语境以原片为准 | 切点不截断语义、不断章取义、来源与再发布授权、时间轴对齐 | `quote` `points` `features` `compare` `steps` |
 | `general` | 泛知识、观点口播 | 无（可自定义） | 事实一致、引用授权、无夸大 | `stats` `features` `steps` `compare` |
 
 用法：配置写 `"profile": "product"`，或命令行 `--profile product`；`--list-profiles` 列出全部。**配置里显式写 `disclaimer` 会覆盖预设**；未写则用预设值，`general` 默认不带免责行。`review_checklist.json` 会记录 `profile` 并输出该场景的审签条目。
 
-示例配置：`assets/config.product.example.json`、`assets/config.ecommerce.example.json`。
+示例配置：`assets/config.example.json`（medical）、`config.product.example.json`、`config.ecommerce.example.json`、`config.clip.example.json`。
+
+注意 `clip` 既是预设名，也是配置里的可选对象名（切片方案）；二者同名但不冲突，可同时使用。
 
 ### 通用动画类型
 
@@ -203,6 +211,64 @@ python scripts/package_video.py --config c.json \
 | `matrix` | 2×2 四象限 | `cells: [{label, note?}]`、`axes?` |
 
 通用段仍支持 `title` / `sub` / `quote`。Pillow 与 Remotion 两端均已实现；`quote`、`points` 及医学专用 `timeline` / `scan` / `resection` 保持原行为不变。
+
+## 1d. 切片剪辑
+
+适用于长口播切精华、剔除停顿与废话、自动去静音、批量产出多条切片。由 `scripts/clip_video.py` 实现，`package_video.py` 在检测到 `clip` 配置或 `--clip-ranges` 时自动作为**第 0 步**调用。
+
+### 核心约定
+
+配置里 `subtitles` / `segments` / `title_card.show` / `person.show` / `background_time` / `audio.fade_out` 的时间码**一律按原片时间轴填写**。切片后引擎生成 `edit_map.json`（原时间→新时间）并把它们全部重映射到缩短后的时间轴，产物写入 `clipped_config.json`。无需手工改表，也不会出现字幕与画面对不上。
+
+### `clip` 对象
+
+| 字段 | 默认 | 说明 |
+|---|---|---|
+| `mode` | `keep` | `keep` 保留 `ranges` / `cut` 剔除 `ranges`（保留补集）/ `silence` 自动检测静音并剔除 |
+| `ranges` | — | `[[start,end], ...]`，秒，原片时间轴；`silence` 模式可省略 |
+| `pad` | 0.08 | 切点保护留白：`keep` 向外扩，`cut` / `silence` 向内缩，避免切在字中间 |
+| `min_gap` | 0.0 | 相邻保留段间隔小于此值则合并 |
+| `silence` | `{noise:"-35dB", min_duration:0.45, keep:0.12}` | `silence` 模式的检测阈值与保留边距 |
+| `batch` | false | 额外导出每段 `clip_XX.mp4` + 已重映射的 `clip_XX.json` |
+| `output` | `<workdir>/clipped.mp4` | 剪辑版中间视频路径 |
+| `packaged_output` | 同 `output` | 切片后成片输出路径（覆盖顶层 `output`） |
+
+切片用一次 ffmpeg `trim + setpts + atrim + asetpts + concat` 完成帧精确硬切，音画同步裁剪，每段音轨首尾 20ms 淡入淡出防爆音，输出保持源分辨率与帧率。
+
+### 命令
+
+```bash
+# 配置驱动：一步完成切片 + 重映射 + 包装
+python scripts/package_video.py --config config.clip.example.json
+
+# 只切片，先看 clipped.mp4 / edit_map.json / clipped_config.json
+python scripts/package_video.py --config c.json --clip-only
+
+# 不改配置，命令行临时指定保留区间（自动启用切片阶段）
+python scripts/package_video.py --config c.json --clip-ranges "0,12 18,33 41,64"
+python scripts/package_video.py --config c.json --clip-mode silence
+python scripts/package_video.py --config c.json --clip-batch
+
+# 忽略配置里的 clip 段，用原片直接包装
+python scripts/package_video.py --config c.json --no-clip
+
+# 独立使用：只切片、不包装、不重映射
+python scripts/clip_video.py --source long.mp4 --ranges "0,12 18,33" --output short.mp4
+python scripts/clip_video.py --config c.json --mode silence --output short.mp4
+```
+
+### 重映射规则与边界
+
+- 字幕：起点落在被剪区的直接丢弃；终点跨切点的裁剪到该保留段末尾；映射后不足 0.25 秒的丢弃。
+- 动画段：同样裁剪到所在保留段，映射后时长不足原时长 40% 的丢弃，避免动画被压成闪帧。
+- 片头标题 / 人物名片：`show` 支持多区间，逐区间映射；完全落在被剪区的区间丢弃，起点被剪的吸附到下一段开头。
+- 背景取帧时间与音频淡出：前者映射到新时间轴（失效时取首段中点），后者重算为「新时长 − 淡出时长」。
+- 终端会打印丢弃数量；`review_checklist.json` 的 `clip_edit` 记录源时长、保留段数、丢弃计数。
+- **硬切不做转场、不补帧、不智能补字幕**。切点是否切断半句话、条件或否定词，必须人工核对 `edit_map.json` 并试听；这是 `clip` 预设审签清单第一条。
+
+### 批量切片
+
+`batch: true` 时在 `<workdir>/clips/` 产出每段 `clip_XX.mp4`（未包装的原片片段）与 `clip_XX.json`（只含该段元素、已重映射，可直接 `--config` 跑包装，输出为 `clip_XX_packaged.mp4`）。主成片仍照常输出拼接后的完整版本。
 
 ## 2. 动画后端
 
@@ -228,6 +294,7 @@ npm install --registry=https://registry.npmmirror.com --no-audit --no-fund
 - 设计画布恒为 720×1280，所有配置坐标按此填写；引擎在 overlay 时缩放到源视频尺寸。
 - 小真人窗口挖空由引擎完成：动画段背景帧在该区域 alpha=0，主视频经 `crop → scale → alphamerge → overlay` 变成动态画中画，位于动画浮层之下。
 - 叠层顺序：主视频 → 小真人 → 动画/静态浮层 → ASS 字幕。
+- 启用切片后，上述时间轴全部按 `edit_map.json` 重映射；`clipped.mp4` 成为新的主视频输入，设计画布与坐标不变。
 - 字幕在动画段自动右移（`\pos(500,1080)\fs32`），因为常规居中字幕会压住左下画中画。
 
 ## 4. ffmpeg 实战坑（已在引擎中规避）
@@ -262,9 +329,10 @@ npm install --registry=https://registry.npmmirror.com --no-audit --no-fund
 
 - `product`：遵守《广告法》，避免「最」「第一」等绝对化用语；参数、认证、检测报告与销量数据须可溯源；价格与促销标注有效期与适用条件；肖像、品牌标识、音乐与字体需授权。
 - `ecommerce`：标注数据来源、时间区间与统计口径；竞品信息来自公开可核实渠道，不作不当比较；预测值明确标注；价格与排名标注采集时间；不诱导交易或规避平台规则。
+- `clip`：逐句核对切点未截断语义、节选与上下文一致；标注原片来源、发布时间与「节选/剪辑」；确认肖像、原片版权与音乐已获再发布授权；字幕与动画按新时间轴重新对齐。医学素材做切片时仍须叠加 `medical` 的资质与免责要求。
 - `general`：事实与字幕一致，引用可溯源，无未经验证的承诺。
 
-三者同样要求成片待人工审签、不自动发布；AI 生成合成标识由后期/发布环节处理。
+四者同样要求成片待人工审签、不自动发布；AI 生成合成标识由后期/发布环节处理。
 
 ## 6. 质检清单
 
@@ -276,6 +344,7 @@ npm install --registry=https://registry.npmmirror.com --no-audit --no-fund
 - [ ] 片尾卡（头像、对勾、文字）完整，总时长 = 原片 + 片尾
 - [ ] 音画同步、原声完整、结尾淡出
 - [ ] `review_checklist.json` 已交由人工审签
+- [ ] 切片项目额外核对：`edit_map.json` 切点未截断语义、`clipped_config.json` 时间轴无残留、片尾免责与来源标注齐全
 
 ## 7. 扩展
 
@@ -284,6 +353,8 @@ npm install --registry=https://registry.npmmirror.com --no-audit --no-fund
 - **改字幕引擎**：ASS 由 `build_subtitles()` 生成，可换成外部 SRT 读取器。
 - **接 TTS/补录**：引擎不做配音；在 `audio` 里替换音轨需自行扩展 `compose()` 的 `-map [aout]`。
 - **批量日更**：把 `config.json` 模板化，用脚本按选题生成 `subtitles`/`segments`，循环调用引擎；用 WorkBuddy 定时任务驱动，但**不要串发布动作**。
+- **改切片规则**：`clip_video.py` 的 `build_ranges()` 决定保留段，`remap_config()` 决定时间轴重映射；`render_segments()` 决定 ffmpeg 切片与拼接滤镜。
+- **发版**：`python scripts/make_dist.py --src . --out dist` 从源码生成两个 zip；push `v*` tag 触发 `.github/workflows/release.yml` 自动建 Release，见第 9 节。
 
 ## 8. 故障排查
 
@@ -294,4 +365,37 @@ npm install --registry=https://registry.npmmirror.com --no-audit --no-fund
 | Remotion render 失败 | 确认 `remotion/node_modules` 存在、`props.json` 已生成、Chrome 路径有效；4.0.542+ 必须用 `--sequence`，`--codec=png` 会报 Codec 错误 |
 | 外部帧没生效 | 目录里必须是 `.png`，按文件名排序，数量 ≥ 源视频总帧数 |
 | 动画段人物消失 | `pip` 被设为 null，或外部帧在窗口区域不透明 |
-| 成片比预期短 | 检查 `ending.duration` 与 concat 的 `list.txt` |
+| 成片比预期短 | 检查 `ending.duration` 与 concat 的 `list.txt`；切片项目先看 `edit_map.json` 的保留段总长 |
+| 切片后字幕/动画错位或消失 | 查看终端的 dropped 计数与 `clipped_config.json`；被剪区的字幕会被丢弃，跨切点动画会被裁剪，必要时调整 `clip.ranges` 避开知识点 |
+| 切片声音有爆音 | 每段已有 20ms 淡入淡出；若源音频本身削波，调小 `clip.silence.noise` 或改用外部音频处理 |
+| `--clip-only` 报错 | 需要配置里有 `clip` 段或命令行给 `--clip-ranges`；`--no-clip` 与 `--clip-only` 不能同时使用 |
+| `show` 报 `list <= float` | 重映射后的 `show` 是多区间列表；引擎用 `in_ranges()` 处理，勿改回单区间假设 |
+
+## 9. 版本与发布
+
+当前版本 **`1.1.0`**（新增切片剪辑与 `clip` 预设）。任何内容改动都要同步递增版本，否则 SkillHub 会判重复提交。
+
+| 位置 | 作用 |
+|---|---|
+| `SKILL.md` frontmatter `version` | SkillHub / WorkBuddy 读取的主版本 |
+| `manifest.yaml` `version` | SkillHub 从 GitHub 导入时读取，必须与上一行一致 |
+| `git tag v1.1.0` | GitHub Release 与自动发版的触发器 |
+
+发布流程：
+
+```bash
+# 1. 升版本后从源码生成两个发布包（内容一致，仅目录层级不同）
+python scripts/make_dist.py --src . --out dist
+#    dist/oral-video-packager.zip            带外层目录，WorkBuddy「添加技能 → 上传技能」
+#    dist/oral-video-packager-skillhub.zip  扁平根目录 SKILL.md，SkillHub 网页上传
+#    dist/oral-video-packager-v1.1.0.zip    Release 附件（WorkBuddy 格式）
+
+# 2. 提交并打 tag；push tag 会自动建 GitHub Release 并挂上 zip
+git add -A && git commit -m "feat: ..."
+git tag -a v1.1.0 -m "v1.1.0"
+git push origin main && git push origin v1.1.0
+```
+
+`.github/workflows/release.yml` 在 push `v*` tag 时运行 `make_dist.py`，用仓库自带的 `GITHUB_TOKEN` 创建 Release 并附上 zip。首次使用需在仓库 Settings → Actions → General → Workflow permissions 勾选 **Read and write permissions**，否则建 Release 会因权限不足失败（不影响 tag 本身）。
+
+SkillHub 侧：从 GitHub 导入时确认页版本号填 `1.1.0`（若 `1.0.0` 已提交过，必须递增）；网页上传则用扁平包。已发布的 `v1.0.0` Release 资产不覆盖。
